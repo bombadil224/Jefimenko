@@ -4,7 +4,7 @@ Jefimenko
 This is intended to become an EM simulator based on the Jefimenko equations.
 
 Requirements
-^^^^^^^^^^^^
+-------
 numpy
 matplotlib
 
