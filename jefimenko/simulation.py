@@ -22,6 +22,7 @@ import sys
 C_0 = 299792458  # this is the speed of light in meters per secound
 K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
 E_0 = (4 * np.pi * K_e) ** -1  # free space permittivity
+U_0 = (C_0 ** 2 * E_0) ** -1   # free space permeability
 
 
 def simulate(grid):
@@ -30,11 +31,21 @@ def simulate(grid):
     # this will run the simulation of a grid and charges
 
     # start a loop that will simulate the system for every point on the grid
-    # V is the location on the grid where the E field is being calculated
-    for V in np.ndindex(tuple(grid.shape)):
-        grid.grid['E'] = electric_charges(grid.grid['E'],
-                                          grid.charges,
-                                          grid, V)
+    # location is the location on the grid
+    # where the E field is being calculated
+    for time in range(grid.time_size):
+        for location in np.ndindex(tuple(grid.shape)):
+            grid.grid['E'] = electric_charges(grid.grid['E'],
+                                              grid.charges[time],
+                                              grid,
+                                              location,
+                                              time)
+
+            grid.grid['H'] = currents(grid.grid['H'],
+                                      grid.currents[time],
+                                      grid,
+                                      location,
+                                      time)
     print('grid simulated')
 
 
@@ -42,28 +53,50 @@ def retardation(r, grid):
     return(int(np.rint((r / C_0) / grid.delta_t)))
 
 
-def electric_charges(E_field, charges, grid, V):
+def electric_charges(E_field, charges, grid, location, time_0):
     scale = 1 / (4 * np.pi * E_0)
 
     # this will calculate the field genorated by the stationary charges
     # loop over the charges in the grid
-    for t in range(grid.time_size):
-        for charge in charges[t]:
-            R = V - charge.location
-            r = np.linalg.norm(grid.delta * R)
-            R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+    for charge in charges:
+        R = location - charge.location
+        r = np.linalg.norm(grid.delta * R)
+        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
 
-            # now loop over the time axis
-            if r != 0:
-                # the only case of error should be a T that is to big
-                # use a try to find and in this case exit the loop
-                # pdb.set_trace()
-                try:
-                    time = t + retardation(r, grid)
-                    E_field[time][V] += (E_field[time][V] + scale * charge.Q *
-                                         R / (r**3))
-                except IndexError:
-                    break
-            else:
-                E_field[t][V] = E_field[t][V]
+        if r != 0:
+            # the only case of error should be a T that is to big
+            # use a try to find and in this case exit the loop
+            # pdb.set_trace()
+            try:
+                time = time_0 + retardation(r, grid)
+                E_field[time][location] = (E_field[time][location] + scale *
+                                           charge.Q *
+                                           R / (r**3))
+            except IndexError:
+                break
+        else:
+            E_field[time_0][location] = E_field[time_0][location]
     return (E_field)
+
+
+def currents(H_field, currents, grid, location, time_0):
+    scale = U_0 / (2 * np.pi)
+
+    # this will calculate the field genorated by the constant currents
+    # loop over the currents in the grid
+    for current in currents:
+        R = location - current.location
+        r = np.linalg.norm(grid.delta * R)
+        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+        if r != 0:
+            try:
+                time = time_0 + retardation(r, grid)
+                H_field[time][location] = (H_field[time][location] + scale *
+                                           current.amps *
+                                           np.cross(current.direction, R)
+                                           / (r**3))
+            except IndexError:
+                break
+        else:
+            H_field[time_0][location] = H_field[time_0][location]
+    return(H_field)

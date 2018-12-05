@@ -80,18 +80,38 @@ class Grid():
             print('charge grid dimension missmatch')
             sys.exit([2])
 
-        new_charge = charge(self, location, Q)
+        new_charge = Charge(self, location, Q)
         for i in range(self.time_size):
-            self.charges[i].append(charge(self, location, Q))
+            self.charges[i].append(new_charge)
 
-    def Add_Current(self, location, direction):
+    def Add_Current(self, location,
+                    direction=[0, 0, 1],
+                    Amps=1):
         # this will add a current to the grid notice that a current is a class
-        # not yet implemented
+        print('location = ' + str(location) + 'amps = ' + str(Amps))
+        if len(location) != self.dimension:
+            print('current grid dimension missmatch')
+            sys.exit([2])
+        if len(direction) != 3:
+            print('direction error')
+            sys.exit([2])
+
+        new_current = Current(self, location, direction, Amps)
+        for i in range(self.time_size):
+            self.currents[i].append(new_current)
         pass
 
 
-class charge():  # this is used to define a charge on the grid
+class Charge():  # this is used to define a charge on the grid
     def __init__(self, grid, location, Q):
 
         self.location = np.array(location).astype(float)
         self.Q = Q
+
+
+class Current():  # this is used to define a current on the grid
+    def __init__(self, grid, location, direction, amps):
+
+        self.location = np.array(location).astype(float)
+        self.direction = np.array(direction).astype(float)
+        self.amps = float(amps)

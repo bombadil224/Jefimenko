@@ -22,61 +22,155 @@ from mpl_toolkits.mplot3d import Axes3D
 import sys
 
 
+# ths will plot the grid charges and currents
 def plot_grid(Grid, time=0):
 
+    # each number of dimen stons is handeld sepratly
     if Grid.dimension == 1:
-        x = []
-        y = []
-        Q = []
+
+        x, y, z, Q = [], [], [], []
+        # first plot the charges
         for i in range(len(Grid.charges[time])):
             x.append(Grid.charges[time][i].location[0])
             y.append(0)
-            Q.append(Grid.charges[i].Q)
+            z.append(0)
+            # Q.append(Grid.charges[i].Q)
 
-        fig, ax = plt.subplots()
-        ax.scatter(x, y)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(x, y, z, c='r', marker='o')
 
         for i, txt in enumerate(Q):
             ax.annotate(txt, (x[i], y[i]))
 
+        x, y, z, u, v, w = [], [], [], [], [], []
+        # secound plot the currents
+        for i in range(len(Grid.currents[time])):
+            x.append(Grid.currents[time][i].location[0])
+            y.append(0)
+            z.append(0)
+
+            u.append(Grid.currents[time][i].direction[0])
+            v.append(Grid.currents[time][i].direction[1])
+            w.append(Grid.currents[time][i].direction[2])
+
+        vlength = .4 * np.linalg.norm(Grid.delta)
+
+        ax.quiver(
+                x,
+                y,
+                z,
+                u,
+                v,
+                w,
+                pivot='middle',
+                length=vlength,
+                arrow_length_ratio=0.3 / vlength)
+
+        # Do any fineshing touches on the grid
+        ax.set_xlabel('X axis')
+        ax.set_ylabel('Y axis')
+        ax.set_zlabel('Z axis')
+
+        ax.set_xlim(-1, Grid.size[0])
+        ax.set_ylim(-1, 1)
+        ax.set_zlim(-1, 1)
+
         print('shape = 1')
     elif Grid.dimension == 2:
 
-        x, y, z, n = [], [], [], []
+        x, y, z, Q = [], [], [], []
+        # first plot the charges
         for i in range(len(Grid.charges[time])):
             x.append(Grid.charges[time][i].location[0])
             y.append(Grid.charges[time][i].location[1])
             z.append(0)
-            # n.append(Grid.charge[i].Q)
+            # Q.append(Grid.charge[i].Q)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(x, y, z, c='r', marker='o')
 
+        x, y, z, u, v, w = [], [], [], [], [], []
+        # secound plot the currents
+        for i in range(len(Grid.currents[time])):
+            x.append(Grid.currents[time][i].location[0])
+            y.append(Grid.currents[time][i].location[1])
+            z.append(0)
+
+            u.append(Grid.currents[time][i].direction[0])
+            v.append(Grid.currents[time][i].direction[1])
+            w.append(Grid.currents[time][i].direction[2])
+
+        vlength = .4 * np.linalg.norm(Grid.delta)
+
+        ax.quiver(
+                x,
+                y,
+                z,
+                u,
+                v,
+                w,
+                pivot='middle',
+                length=vlength,
+                arrow_length_ratio=0.3 / vlength)
+
+        # Do any fineshing touches on the grid
         ax.set_xlabel('X axis')
         ax.set_ylabel('Y axis')
         ax.set_zlabel('Z axis')
+
+        ax.set_xlim(-1, Grid.size[0])
+        ax.set_ylim(-1, Grid.size[1])
+        ax.set_zlim(-1, 1)
+
         print('Shape = 2')
 
     elif Grid.dimension == 3:
 
-        x = []
-        y = []
-        z = []
-        n = []
+        x, y, z = [], [], []
+        Q = []
         for i in range(len(Grid.charges[time])):
             x.append(Grid.charges[time][i].location[0])
             y.append(Grid.charges[time][i].location[1])
             z.append(Grid.charges[time][i].location[2])
-            # n.append(Grid.charge[i].Q)
+            # Q.append(Grid.charge[i].Q)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(x, y, z, c='r', marker='o')
 
+        x, y, z, u, v, w = [], [], [], [], [], []
+        # secound plot the currents
+        for i in range(len(Grid.currents[time])):
+            x.append(Grid.currents[time][i].location[0])
+            y.append(Grid.currents[time][i].location[1])
+            z.append(Grid.currents[time][i].location[2])
+
+            u.append(Grid.currents[time][i].direction[0])
+            v.append(Grid.currents[time][i].direction[1])
+            w.append(Grid.currents[time][i].direction[2])
+
+        vlength = .4 * np.linalg.norm(Grid.delta)
+
+        ax.quiver(
+                x,
+                y,
+                z,
+                u,
+                v,
+                w,
+                pivot='middle',
+                length=vlength,
+                arrow_length_ratio=0.3 / vlength)
+
         ax.set_xlabel('X axis')
         ax.set_ylabel('Y axis')
         ax.set_zlabel('Z axis')
+
+        ax.set_xlim(-1, Grid.size[0])
+        ax.set_ylim(-1, Grid.size[1])
+        ax.set_zlim(-1, Grid.size[2])
 
         print('shape = 3')
 
@@ -91,14 +185,14 @@ def plot_EM_grid(mode, grid, time=0):
 
     if grid.dimension == 1:
 
-        for i, j in np.ndindex(tuple(grid.shape)):
+        for i in np.ndindex(tuple(grid.shape)):
             x = i * grid.delta[0]
             y = 0
             z = 0
 
-            u = grid.grid[mode][time][int(i)][int(j)][0].real
-            v = grid.grid[mode][time][int(i)][int(j)][1].real
-            w = grid.grid[mode][time][int(i)][int(j)][2].real
+            u = grid.grid[mode][time][i][0].real
+            v = grid.grid[mode][time][i][1].real
+            w = grid.grid[mode][time][i][2].real
 
             norm = np.linalg.norm([u, v, w])
 
@@ -115,7 +209,7 @@ def plot_EM_grid(mode, grid, time=0):
                     u,
                     v,
                     w,
-                    pivot='tail',
+                    pivot='middle',
                     length=vlength)
 
         for i in range(len(grid.charges[time])):
@@ -152,7 +246,7 @@ def plot_EM_grid(mode, grid, time=0):
                     u,
                     v,
                     w,
-                    pivot='tail',
+                    pivot='middle',
                     length=vlength)
 
         for i in range(len(grid.charges[time])):
@@ -160,7 +254,8 @@ def plot_EM_grid(mode, grid, time=0):
             y = (grid.charges[time][i].location[1])
             z = 0
             ax.scatter(x, y, z, c='r', marker='o')
-        ax.set_zlim([-.5, .5])
+
+        ax.set_zlim(-1.5, 1.5)
 
     elif grid.dimension == 3:
 
@@ -173,7 +268,25 @@ def plot_EM_grid(mode, grid, time=0):
             v = grid.grid[mode][time][int(i)][int(j)][int(k)][1].real
             w = grid.grid[mode][time][int(i)][int(j)][int(k)][2].real
 
-            u, v, w = [u, v, w] / np.linalg.norm([u, v, w])
+            norm = np.linalg.norm([u, v, w])
+
+            if norm == 0:
+                ax.scatter(x, y, z, c='b', marker='o')
+            else:
+                u, v, w = [u, v, w] / norm
+                vlength = np.linalg.norm(grid.delta) * .4
+
+                ax.quiver(
+                    x,
+                    y,
+                    z,
+                    u,
+                    v,
+                    w,
+                    pivot='middle',
+                    length=vlength)
+
+            # u, v, w = [u, v, w] / np.linalg.norm([u, v, w])
 
             # vlength = np.linalg.norm(np.array([u, v, w]))
             vlength = np.linalg.norm(grid.delta) * .4
@@ -185,7 +298,7 @@ def plot_EM_grid(mode, grid, time=0):
                 u,
                 v,
                 w,
-                pivot='tail',
+                pivot='middle',
                 length=vlength,
                 arrow_length_ratio=0.3 / vlength)
 
@@ -193,6 +306,10 @@ def plot_EM_grid(mode, grid, time=0):
             x = (grid.charges[time][i].location[0])
             y = (grid.charges[time][i].location[1])
             z = (grid.charges[time][i].location[2])
+
+        ax.set_xlim(0, grid.size[0])
+        ax.set_ylim(0, grid.size[1])
+        ax.set_zlim(0, grid.size[2])
 
     ax.set_xlabel('x')
     ax.set_ylabel('y')
