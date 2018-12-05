@@ -101,6 +101,20 @@ class Grid():
             self.currents[i].append(new_current)
         pass
 
+    # this will allow you to change the amps and direction of a current
+    # at this time you can't change the location
+    def Modify_Current(self,
+                       N,     # what current you want to modify
+                       time=0,  # the time at which you want to modify the curent
+                       direction=False,  # the new direction
+                       amps=False):  # the new amps value
+
+        time_N = int(np.rint(self.time / time))
+        if direction is not False:
+            self.currents[time_N][N].direction = direction
+        if amps is not False:
+            self.currents[time_N][N].amps = float(amps)
+
 
 class Charge():  # this is used to define a charge on the grid
     def __init__(self, grid, location, Q):
