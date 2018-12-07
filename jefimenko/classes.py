@@ -80,8 +80,8 @@ class Grid():
             print('charge grid dimension missmatch')
             sys.exit([2])
 
-        new_charge = Charge(self, location, Q)
         for i in range(self.time_size):
+            new_charge = Charge(self, location, Q)
             self.charges[i].append(new_charge)
 
     def Add_Current(self, location,
@@ -96,8 +96,8 @@ class Grid():
             print('direction error')
             sys.exit([2])
 
-        new_current = Current(self, location, direction, Amps)
         for i in range(self.time_size):
+            new_current = Current(self, location, direction, Amps)
             self.currents[i].append(new_current)
         pass
 
@@ -105,15 +105,21 @@ class Grid():
     # at this time you can't change the location
     def Modify_Current(self,
                        N,     # what current you want to modify
-                       time=0,  # the time at which you want to modify the curent
+                       time=0,  # the time at which to make changes
                        direction=False,  # the new direction
                        amps=False):  # the new amps value
 
-        time_N = int(np.rint(self.time / time))
+        print('Modifying Current')
+        time_N = int(np.rint(time / self.delta_t))
         if direction is not False:
-            self.currents[time_N][N].direction = direction
+            self.currents[time_N][N].direction = (direction /
+                                                  np.linalg.norm(direction))
         if amps is not False:
             self.currents[time_N][N].amps = float(amps)
+        print('New Time = ' + str(time_N))
+        print('New Amps = ' + str(amps))
+        print('New direction = ' + str(direction))
+        print()
 
 
 class Charge():  # this is used to define a charge on the grid
@@ -127,5 +133,7 @@ class Current():  # this is used to define a current on the grid
     def __init__(self, grid, location, direction, amps):
 
         self.location = np.array(location).astype(float)
-        self.direction = np.array(direction).astype(float)
+        self.direction = (np.array(direction /
+                                   np.linalg.norm(direction)).astype(float))
         self.amps = float(amps)
+        self.diff_t = 0

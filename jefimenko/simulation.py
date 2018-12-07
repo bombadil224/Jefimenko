@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+from .derivative import *
 import numpy as np
 import sys
 
@@ -27,6 +28,9 @@ U_0 = (C_0 ** 2 * E_0) ** -1   # free space permeability
 
 def simulate(grid):
     print('simulating grid')
+    # this tells weather the differentials need to be updated
+    update_diff = True
+    # this is used to flush the print statments befor the loop starts
     sys.stdout.flush()
     # this will run the simulation of a grid and charges
 
@@ -34,6 +38,13 @@ def simulate(grid):
     # location is the location on the grid
     # where the E field is being calculated
     for time in range(grid.time_size):
+        # update_diff must be tested at the start of each time loop incase
+        # something is changed. this will be needed when moving charges
+        # are introduced
+        if update_diff is True:
+            currents_time_diff(grid)
+            update_diff = False
+
         for location in np.ndindex(tuple(grid.shape)):
             grid.grid['E'] = electric_charges(grid.grid['E'],
                                               grid.charges[time],
@@ -41,6 +52,9 @@ def simulate(grid):
                                               location,
                                               time)
 
+            # first find the part of H that is dependent on grid.currents
+            # notice that this will cumpleatly
+            # solve for H in the case of the jefimenko equations
             grid.grid['H'] = currents(grid.grid['H'],
                                       grid.currents[time],
                                       grid,
@@ -66,7 +80,6 @@ def electric_charges(E_field, charges, grid, location, time_0):
         if r != 0:
             # the only case of error should be a T that is to big
             # use a try to find and in this case exit the loop
-            # pdb.set_trace()
             try:
                 time = time_0 + retardation(r, grid)
                 E_field[time][location] = (E_field[time][location] + scale *
@@ -80,7 +93,8 @@ def electric_charges(E_field, charges, grid, location, time_0):
 
 
 def currents(H_field, currents, grid, location, time_0):
-    scale = U_0 / (2 * np.pi)
+    # notice that this is for the H field to finb B maltiply by U_0
+    scale = 1 / (4 * np.pi)
 
     # this will calculate the field genorated by the constant currents
     # loop over the currents in the grid
@@ -90,11 +104,16 @@ def currents(H_field, currents, grid, location, time_0):
         R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
         if r != 0:
             try:
+                # first find the term dependent on current.amp
                 time = time_0 + retardation(r, grid)
                 H_field[time][location] = (H_field[time][location] + scale *
                                            current.amps *
                                            np.cross(current.direction, R)
                                            / (r**3))
+                # now find the term dependent on current.diff_t
+                H_field[time][location] = (H_field[time][location] + scale *
+                                           np.cross(current.diff_t, R)
+                                           / (r**2 * C_0))
             except IndexError:
                 break
         else:
