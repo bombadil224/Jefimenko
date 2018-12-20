@@ -20,8 +20,6 @@ from .derivative import *
 import numpy as np
 import sys
 
-import pdb
-
 C_0 = 299792458  # this is the speed of light in meters per secound
 K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
 E_0 = (4 * np.pi * K_e) ** -1  # free space permittivity
@@ -124,20 +122,20 @@ def electric_currents(E_field, currents, grid, location, time_0):
                 time = time_0 + retardation(r, grid)
                 E_field[time][location] = (E_field[time][location] - scale *
                                            current.amps * current.direction *
-                                           2 / r)
+                                           2 / r**2)
 
-                E_field[time][location] = (E_field[time][location] + scale *
+                E_field[time][location] = (E_field[time][location] + scale *    # this term still needs testing
                                            2 * R * np.dot(current.amps *
                                            current.direction, R) * 2 /
-                                           (r**3))
+                                           (r**4))
 
                 # now find the terms dependent on current.dif
                 E_field[time][location] = (E_field[time][location] + scale *
-                                           R * np.dot(current.diff_t, R) *
-                                           np.log(r) / (r**2 * C_0))
+                                           R * np.dot(current.diff_t, R) /
+                                           (r**3 * C_0))
 
                 E_field[time][location] = (E_field[time][location] - scale *
-                                           current.diff_t * np.log(r) / (C_0))
+                                           current.diff_t / (r * C_0))
             except IndexError:
                 break
         else:
@@ -147,7 +145,7 @@ def electric_currents(E_field, currents, grid, location, time_0):
 
 def currents(H_field, currents, grid, location, time_0):
     # notice that this is for the H field to finb B maltiply by U_0
-    scale = U_0 * np.linalg.norm(grid.delta) / (4 * np.pi)
+    scale = np.linalg.norm(grid.delta) / (4 * np.pi)
 
     # this will calculate the field genorated by the currents
     # loop over the currents in the grid
@@ -162,6 +160,7 @@ def currents(H_field, currents, grid, location, time_0):
                 # pdb.set_trace()
                 # first find the term dependent on current.amp
                 time = time_0 + retardation(r, grid)
+
                 H_field[time][location] = (H_field[time][location] + scale *
                                            current.amps *
                                            np.cross(current.direction, R) *
@@ -169,8 +168,8 @@ def currents(H_field, currents, grid, location, time_0):
 
                 # now find the term dependent on current.diff_t
                 H_field[time][location] = (H_field[time][location] + scale *
-                                           np.cross(current.diff_t, R) *
-                                           np.log(r) / (r * C_0))
+                                           np.cross(current.diff_t, R)
+                                           / (r**2 * C_0))
             except IndexError:
                 break
         else:

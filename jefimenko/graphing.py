@@ -195,12 +195,18 @@ def plot_EM_grid(mode, grid, time=0):
             w = grid.grid[mode][time][i][2].real
 
             norm = np.linalg.norm([u, v, w])
-
+###############
+            V = []
+            for i in range(len(grid.grid[mode][time])):
+                V.append(np.linalg.norm(grid.grid[mode][time][i]))
+            V_max = max(V)
+###############
             if norm == 0:
                 ax.scatter(x, y, z, c='b', marker='o')
             else:
                 u, v, w = [u, v, w] / norm
-                vlength = np.linalg.norm(grid.delta) * .4
+                vlength = np.linalg.norm(grid.delta) * .4 * norm / V_max
+                # vlength = (np.linalg.norm([u, v, w]) / V_max) * np.linalg.norm(grid.delta) * .4
 
                 ax.quiver(
                     x,

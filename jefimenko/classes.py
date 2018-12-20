@@ -107,19 +107,21 @@ class Grid():
                        N,     # what current you want to modify
                        time=0,  # the time at which to make changes
                        direction=False,  # the new direction
-                       amps=False):  # the new amps value
+                       amps=False,  # the new amps value
+                       Hide=True):
 
-        print('Modifying Current')
         time_N = int(np.rint(time / self.delta_t))
         if direction is not False:
             self.currents[time_N][N].direction = (direction /
                                                   np.linalg.norm(direction))
         if amps is not False:
             self.currents[time_N][N].amps = float(amps)
-        print('New Time = ' + str(time_N))
-        print('New Amps = ' + str(amps))
-        print('New direction = ' + str(direction))
-        print()
+        if Hide == False:
+            print('Modifying Current')
+            print('New Time = ' + str(time_N))
+            print('New Amps = ' + str(amps))
+            print('New direction = ' + str(direction))
+            print()
 
 
 class Charge():  # this is used to define a charge on the grid
