@@ -42,6 +42,9 @@ class Grid():
 
         if size is False:
             self.size = [10] * self.dimension
+        elif len(size) != self.dimension:
+            print('size dimension missmatch grid not genorated')
+            sys.exit()
         else:
             self.size = size
         self.size = np.array(self.size)
@@ -72,7 +75,7 @@ class Grid():
         self.grid['H'] = np.zeros(
             tuple(np.append(self.shape_t, [3])), dtype='complex')
 
-    def Add_Charge(self, location, Q=1):
+    def Add_Charge(self, location, Q=1, velocity=False, acceleration=False):
         # this will add a charge to the grid notice that a charge is a class
 
         print('location = ' + str(location) + 'Q = ' + str(Q))
@@ -80,9 +83,76 @@ class Grid():
             print('charge grid dimension missmatch')
             sys.exit([2])
 
+        if velocity is False:
+            velocity = self.dimension * [0]
+        elif len(veocity) != self.dimension:
+            print('velocity dimension missmatch charge not added')
+            sys.exit()
+
+        if acceleration is False:
+            acceleration = self.dimension * [0]
+        elif len(acceleration) != self.dimension:
+            print('acceleration dimension missmatch charge not added')
+            sys.exit()
+
+        # add the charge to every time step
         for i in range(self.time_size):
-            new_charge = Charge(self, location, Q)
+            new_charge = Charge(self, location, Q, velocity, acceleration)
             self.charges[i].append(new_charge)
+
+    def modify_charge(self,
+                      N,    # what charge you want to modify
+                      time,  # at what time you want to modify the charge
+                      velocity=False,  # the new velocity at time, time
+                      acceleration=False,  # the new acceleration of the charge
+                      location=False,  # this changes the charges locaiton
+                      print_charge=False):  # set true to print charge info
+
+        # if the location of a charge is changed all informaiton
+        # about velocity and acceleration is discarded and overwitten.
+        if location is not False:
+            if len(location) != self.dimension:
+                print('locaton dimension missmatch charge not modified')
+                sys.exit()
+
+        if velocity is not False:
+            if len(veocity) != self.dimension:
+                print('velocity dimension missmatch charge not modified')
+                sys.exit()
+
+        if acceleration is not False:
+            if len(acceleration) != self.dimension:
+                print('acceleration dimension missmatch charge not modified')
+                sys.exit()
+
+        if velocity is not False:
+            self.charges[time][N].velocity = np.array(velocity)
+        if acceleration is not False:
+            self.charges[time][N].acceleration = np.array(acceleration)
+        if location is not False:
+            self.charges[time][N].location = np.array(location)
+
+            temp_location = []
+            temp_velocity = []
+            temp_acceleration = []
+
+            for t in range(len(self.charges)):
+                temp_location.append(self.charges[t][N].location)
+
+            temp_velocity = np.gradient(temp_location, axis=0)
+            temp_acceleration = np.gradient(temp_velocity, axis=0)
+
+            if print_charge is not False:
+                print('location')
+                print(temp_location)
+                print('velocity')
+                print(temp_velocity)
+                print('acceleration')
+                print(temp_acceleration)
+
+            for t in range(len(self.charges)):
+                self.charges[t][N].velocity = temp_velocity[t]
+                self.charges[t][N].acceleration = temp_acceleration[t]
 
     def Add_Current(self, location,
                     direction=[0, 0, 1],
@@ -116,7 +186,7 @@ class Grid():
                                                   np.linalg.norm(direction))
         if amps is not False:
             self.currents[time_N][N].amps = float(amps)
-        if Hide == False:
+        if Hide is False:
             print('Modifying Current')
             print('New Time = ' + str(time_N))
             print('New Amps = ' + str(amps))
@@ -125,10 +195,12 @@ class Grid():
 
 
 class Charge():  # this is used to define a charge on the grid
-    def __init__(self, grid, location, Q):
+    def __init__(self, grid, location, Q, velocity, acceleration):
 
         self.location = np.array(location).astype(float)
         self.Q = Q
+        self.velocity = np.array(velocity)
+        self.acceleration = np.array(acceleration)
 
 
 class Current():  # this is used to define a current on the grid

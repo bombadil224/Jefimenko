@@ -206,7 +206,6 @@ def plot_EM_grid(mode, grid, time=0):
             else:
                 u, v, w = [u, v, w] / norm
                 vlength = np.linalg.norm(grid.delta) * .4 * norm / V_max
-                # vlength = (np.linalg.norm([u, v, w]) / V_max) * np.linalg.norm(grid.delta) * .4
 
                 ax.quiver(
                     x,
