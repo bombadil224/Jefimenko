@@ -19,7 +19,6 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 from .derivative import *
 import numpy as np
 import sys
-import pdb
 
 C_0 = 299792458  # this is the speed of light in meters per secound
 K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
@@ -54,7 +53,7 @@ def simulate(grid):
             #                                  location,
             #                                  time)
 
-            # now find the part of E that depends on moving charges
+            # find the part of E that depends on charges
             grid.grid['E'] = dynamic_charges_E(grid.grid['E'],
                                                grid.charges[time],
                                                grid,
@@ -70,14 +69,12 @@ def simulate(grid):
 
             # now find H
             # first find the part of H that is dependent on grid.currents
-            # notice that this will cumpleatly
-            # solve for H in the case of the jefimenko equations
-            # pdb.set_trace()
             grid.grid['H'] = currents(grid.grid['H'],
                                       grid.currents[time],
                                       grid,
                                       location,
                                       time)
+
             # now find the part of H that depends on moving charges
             grid.grid['H'] = dynamic_charges_H(grid.grid['H'],
                                                grid.charges[time],
@@ -91,32 +88,32 @@ def retardation(r, grid):
     return(int(np.rint((r / C_0) / grid.delta_t)))
 
 
-def electric_charges(E_field, charges, grid, location, time_0):
-    # note that charges are considerd to be at a porticular location
-    scale = 1 / (4 * np.pi * E_0)
-
-    # this will calculate the field genorated by the stationary charges
-    # loop over the charges in the grid
-    for charge in charges:
-        R = location - charge.location
-        R = grid.delta * R
-        r = np.linalg.norm(R)
-        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
-
-        if r != 0:
-            # the only case of error should be a time that is to big
-            # use a try to find and in this case exit the loop
-            try:
-                # first the terms dependent on charge.Q
-                time = time_0 + retardation(r, grid)
-                E_field[time][location] = (E_field[time][location] + scale *
-                                           charge.Q *
-                                           R / (r**3))
-            except IndexError:
-                break
-        else:
-            E_field[time_0][location] = E_field[time_0][location]
-    return (E_field)
+# def electric_charges(E_field, charges, grid, location, time_0):
+#     # note that charges are considerd to be at a porticular location
+#     scale = 1 / (4 * np.pi * E_0)
+#
+#     # this will calculate the field genorated by the stationary charges
+#     # loop over the charges in the grid
+#     for charge in charges:
+#         R = location - charge.location
+#         R = grid.delta * R
+#         r = np.linalg.norm(R)
+#         R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+#
+#         if r != 0:
+#             # the only case of error should be a time that is to big
+#             # use a try to find and in this case exit the loop
+#             try:
+#                 # first the terms dependent on charge.Q
+#                 time = time_0 + retardation(r, grid)
+#                 E_field[time][location] = (E_field[time][location] + scale *
+#                                            charge.Q *
+#                                            R / (r**3))
+#             except IndexError:
+#                 break
+#         else:
+#             E_field[time_0][location] = E_field[time_0][location]
+#     return (E_field)
 
 
 def electric_currents(E_field, currents, grid, location, time_0):
@@ -151,7 +148,7 @@ def electric_currents(E_field, currents, grid, location, time_0):
                 E_field[time][location] = (E_field[time][location] - scale *
                                            current.diff_t / (r * C_0))
             except IndexError:
-                break
+                pass
         else:
             E_field[time_0][location] = E_field[time_0][location]
     return(E_field)
@@ -185,10 +182,9 @@ def currents(H_field, currents, grid, location, time_0):
                                            np.cross(current.diff_t, R)
                                            / (r**2 * C_0))
             except IndexError:
-                break
+                pass
         else:
             H_field[time_0][location] = H_field[time_0][location]
-    # pdb.set_trace()
     return(H_field)
 
 
@@ -203,8 +199,10 @@ def dynamic_charges_E(E_field, charges, grid, location, time_0):
         R = grid.delta * R
         r = np.linalg.norm(R)
         R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+
         velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
                           'constant', constant_values=0)
+
         acceleration = (np.pad(charge.acceleration,
                                (0, 3 - len(charge.acceleration)),
                                'constant', constant_values=0))
@@ -238,7 +236,7 @@ def dynamic_charges_E(E_field, charges, grid, location, time_0):
                                            acceleration_term)
 
             except IndexError:
-                break
+                pass
         else:
             E_field[time_0][location] = E_field[time_0][location]
     return (E_field)
@@ -289,7 +287,7 @@ def dynamic_charges_H(H_field, charges, grid, location, time_0):
                                            acceleration_term)
 
             except IndexError:
-                break
+                pass
         else:
             H_field[time_0][location] = H_field[time_0][location]
     return (H_field)

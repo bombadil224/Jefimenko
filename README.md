@@ -12,6 +12,10 @@ Licence
 -------
 GPLv3
 
+Note
+-------
+This program is currently only suitable for experimenting with the idea of using the Jefimenko equations to run EM simulations.
+
 Authors
 -------
 
