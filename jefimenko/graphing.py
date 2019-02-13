@@ -21,11 +21,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sys
 
+from scipy.interpolate import interp1d
 
-# ths will plot the grid charges and currents
+
+# ths will plot the grid charges currents and conductors
 def plot_grid(Grid, time=0):
 
-    # each number of dimen stons is handeld sepratly
+    # each number of dimensions is handeld sepratly
     if Grid.dimension == 1:
 
         x, y, z, Q = [], [], [], []
@@ -34,11 +36,20 @@ def plot_grid(Grid, time=0):
             x.append(Grid.charges[time][i].location[0])
             y.append(0)
             z.append(0)
-            # Q.append(Grid.charges[i].Q)
+            Q.append(Grid.charges[i][time].Q)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(x, y, z, c='r', marker='o')
+
+        x, y, z, Q = [], [], [], []
+        for i in range(len(Grid.conductors)):
+            x.append(Grid.conductors[i].location[0])
+            y.append(0)
+            z.append(0)
+            # Q.append(Grid.charges[i].Q)
+
+        ax.scatter(x, y, z, c='k', marker='s')
 
         for i, txt in enumerate(Q):
             ax.annotate(txt, (x[i], y[i]))
@@ -91,6 +102,14 @@ def plot_grid(Grid, time=0):
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(x, y, z, c='r', marker='o')
 
+        x, y, z = [], [], []
+        for i in range(len(Grid.conductors)):
+            x.append(Grid.conductors[i].location[0])
+            y.append(Grid.conductors[i].location[1])
+            z.append(0)
+
+        ax.scatter(x, y, z, c='k', marker='s')
+
         x, y, z, u, v, w = [], [], [], [], [], []
         # secound plot the currents
         for i in range(len(Grid.currents[time])):
@@ -130,15 +149,30 @@ def plot_grid(Grid, time=0):
 
         x, y, z = [], [], []
         Q = []
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
         for i in range(len(Grid.charges[time])):
             x.append(Grid.charges[time][i].location[0])
             y.append(Grid.charges[time][i].location[1])
             z.append(Grid.charges[time][i].location[2])
-            # Q.append(Grid.charge[i].Q)
+            # Q.append((1 ,0 ,Grid.charges[time][i].Q))
+            q = Grid.charges[time][i].Q
+            if q > 10:
+                q = 10
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+            Q.append((1, 0, np.interp(q, [0, 1], [0, 10])))
+
         ax.scatter(x, y, z, c='r', marker='o')
+
+        x, y, z = [], [], []
+        for i in range(len(Grid.conductors)):
+            x.append(Grid.conductors[i].location[0])
+            y.append(Grid.conductors[i].location[1])
+            z.append(Grid.conductors[i].location[2])
+
+        ax.scatter(x, y, z, c='k', marker='s')
 
         x, y, z, u, v, w = [], [], [], [], [], []
         # secound plot the currents
@@ -160,9 +194,7 @@ def plot_grid(Grid, time=0):
                 u,
                 v,
                 w,
-                pivot='middle',
-                length=vlength,
-                arrow_length_ratio=0.3 / vlength)
+                pivot='middle')
 
         ax.set_xlabel('X axis')
         ax.set_ylabel('Y axis')
@@ -185,6 +217,13 @@ def plot_EM_grid(mode, grid, time=0):
 
     if grid.dimension == 1:
 
+        V = []
+        # for i in range(len(grid.grid[mode][time])):
+        for i in np.ndindex(tuple(grid.shape)):
+            V.append(np.linalg.norm(grid.grid[mode][time][i]))
+        V_max = max(V)
+        V_min = min(V)
+
         for i in np.ndindex(tuple(grid.shape)):
             x = i * grid.delta[0]
             y = 0
@@ -205,7 +244,11 @@ def plot_EM_grid(mode, grid, time=0):
                 ax.scatter(x, y, z, c='b', marker='o')
             else:
                 u, v, w = [u, v, w] / norm
-                vlength = np.linalg.norm(grid.delta) * .4 * norm / V_max
+
+                m = interp1d([V_min, V_max],  # set the length of the EM vector
+                             [np.linalg.norm(grid.delta) * .01,
+                              np.linalg.norm(grid.delta) * .5])
+                vlength = m(norm)
 
                 ax.quiver(
                     x,
@@ -227,6 +270,13 @@ def plot_EM_grid(mode, grid, time=0):
 
     elif grid.dimension == 2:
 
+        V = []
+        # for i in range(len(grid.grid[mode][time])):
+        for i, j in np.ndindex(tuple(grid.shape)):
+            V.append(np.linalg.norm(grid.grid[mode][time][i][j]))
+        V_max = max(V)
+        V_min = min(V)
+
         for i, j in np.ndindex(tuple(grid.shape)):
             x = i * grid.delta[0]
             y = j * grid.delta[1]
@@ -242,7 +292,11 @@ def plot_EM_grid(mode, grid, time=0):
                 ax.scatter(x, y, z, c='b', marker='o')
             else:
                 u, v, w = [u, v, w] / norm
-                vlength = .4 * np.linalg.norm(grid.delta)
+
+                m = interp1d([V_min, V_max],  # set the length of the EM vector
+                             [np.linalg.norm(grid.delta) * .01,
+                              np.linalg.norm(grid.delta) * .5])
+                vlength = m(norm)
 
                 ax.quiver(
                     x,
@@ -264,6 +318,12 @@ def plot_EM_grid(mode, grid, time=0):
 
     elif grid.dimension == 3:
 
+        V = []
+        for i, j, k in np.ndindex(tuple(grid.shape)):
+            V.append(np.linalg.norm(grid.grid[mode][time][i][j][k]))
+        V_max = max(V)
+        V_min = min(V)
+
         for i, j, k in np.ndindex(tuple(grid.shape)):
             x = i * grid.delta[0]
             y = j * grid.delta[1]
@@ -279,7 +339,11 @@ def plot_EM_grid(mode, grid, time=0):
                 ax.scatter(x, y, z, c='b', marker='o')
             else:
                 u, v, w = [u, v, w] / norm
-                vlength = np.linalg.norm(grid.delta) * .4
+
+                m = interp1d([V_min, V_max],  # set the length of the EM vector
+                             [np.linalg.norm(grid.delta) * .01,
+                              np.linalg.norm(grid.delta) * .5])
+                vlength = m(norm)
 
                 ax.quiver(
                     x,
@@ -290,22 +354,6 @@ def plot_EM_grid(mode, grid, time=0):
                     w,
                     pivot='middle',
                     length=vlength)
-
-            # u, v, w = [u, v, w] / np.linalg.norm([u, v, w])
-
-            # vlength = np.linalg.norm(np.array([u, v, w]))
-            vlength = np.linalg.norm(grid.delta) * .4
-
-            ax.quiver(
-                x,
-                y,
-                z,
-                u,
-                v,
-                w,
-                pivot='middle',
-                length=vlength,
-                arrow_length_ratio=0.3 / vlength)
 
         for i in range(len(grid.charges[time])):
             x = (grid.charges[time][i].location[0])

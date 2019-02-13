@@ -18,6 +18,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
+
 def currents_time_diff(grid):
     # this will calculate the time derivative of the currents
     # first make a list of all of the currents

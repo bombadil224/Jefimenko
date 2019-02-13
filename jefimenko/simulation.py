@@ -17,18 +17,35 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from .derivative import *
+from .charge_current_integrals import *
+from .constants import *
+from .classes import *
 import numpy as np
 import sys
+from math import isnan as isnan
+import time
 
-C_0 = 299792458  # this is the speed of light in meters per secound
-K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
-E_0 = (4 * np.pi * K_e) ** -1  # free space permittivity
-U_0 = (C_0 ** 2 * E_0) ** -1   # free space permeability
+import pdb
 
 
-def simulate(grid):
+def timed_range(number_set):  # this will keep trak of how far compleat the simulaiton is
+    n = 0
+    m = number_set
+    for i in range(number_set):
+        b = "percent compleat = " + str(100 * (i + 1)/ number_set)
+        n = n + 1
+        if i != number_set - 1:
+            print(b, end="\r")
+            yield(i)
+        else:
+            print(b, end="\r")
+            print('compleat, '+ str(b) + '%                    ')
+            yield(i)
+
+
+def simulate(grid, charge_currents=False, induction=False):
     print('simulating grid')
-    # this tells weather the differentials need to be updated
+    # this tells if the differentials need to be updated
     update_diff = True
     # this is used to flush the print statments befor the loop starts
     sys.stdout.flush()
@@ -37,7 +54,7 @@ def simulate(grid):
     # start a loop that will simulate the system for every point on the grid
     # location is the location on the grid
     # where the E field is being calculated
-    for time in range(grid.time_size):
+    for time in timed_range(grid.time_size):
         # update_diff must be tested at the start of each time loop incase
         # something is changed. this will be needed when moving charges
         # are introduced
@@ -46,12 +63,6 @@ def simulate(grid):
             update_diff = False
 
         for location in np.ndindex(tuple(grid.shape)):
-            # first find the part of E that is dependent on charges
-            # grid.grid['E'] = electric_charges(grid.grid['E'],
-            #                                  grid.charges[time],
-            #                                  grid,
-            #                                  location,
-            #                                  time)
 
             # find the part of E that depends on charges
             grid.grid['E'] = dynamic_charges_E(grid.grid['E'],
@@ -60,7 +71,7 @@ def simulate(grid):
                                                location,
                                                time)
 
-            # next find the part of E that is dependent on grid.currents
+            # next find the part of E that is dependent on currents
             grid.grid['E'] = electric_currents(grid.grid['E'],
                                                grid.currents[time],
                                                grid,
@@ -68,7 +79,7 @@ def simulate(grid):
                                                time)
 
             # now find H
-            # first find the part of H that is dependent on grid.currents
+            # first find the part of H that is dependent on currents
             grid.grid['H'] = currents(grid.grid['H'],
                                       grid.currents[time],
                                       grid,
@@ -81,213 +92,207 @@ def simulate(grid):
                                                grid,
                                                location,
                                                time)
+
+        if induction is False:
+            pass
+        elif induction is True:  # find induction currents in conductors
+            induction_currents(grid,
+                               grid.currents[time],
+                               grid.charges[time],
+                               grid.conductors,
+                               time)
+#######################
+#  this modifies charges for each current see part removed from classes cunductors for further details
+#        if charge_currents is False:
+#            pass
+#        elif charge_currents is True:   # this will add charges resulting
+#                                        # from the currents in cundoctors
+#            current_charges(grid,
+#                            grid.currents[time],
+#                            grid.conductors, time)
+#
+#  this part removed untill further notice
+#######################
     print('grid simulated')
 
 
-def retardation(r, grid):
-    return(int(np.rint((r / C_0) / grid.delta_t)))
-
-
-# def electric_charges(E_field, charges, grid, location, time_0):
-#     # note that charges are considerd to be at a porticular location
-#     scale = 1 / (4 * np.pi * E_0)
+#def current_charges(grid, currents, conductors, time):
+#    # this will make cunductors modify charges and currents
+#    for conductor in conductors:
+#        for i in range(3):
 #
-#     # this will calculate the field genorated by the stationary charges
-#     # loop over the charges in the grid
-#     for charge in charges:
-#         R = location - charge.location
-#         R = grid.delta * R
-#         r = np.linalg.norm(R)
-#         R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+#            # find charges to modify and modifying current
+#            charge_1 = grid.charges[time][conductor.charges[2*i]]
+#            charge_2 = grid.charges[time][conductor.charges[2*i+1]]
+#            current = grid.currents[time][conductor.current]
 #
-#         if r != 0:
-#             # the only case of error should be a time that is to big
-#             # use a try to find and in this case exit the loop
-#             try:
-#                 # first the terms dependent on charge.Q
-#                 time = time_0 + retardation(r, grid)
-#                 E_field[time][location] = (E_field[time][location] + scale *
-#                                            charge.Q *
-#                                            R / (r**3))
-#             except IndexError:
-#                 break
-#         else:
-#             E_field[time_0][location] = E_field[time_0][location]
-#     return (E_field)
+#            charge_modifyer = (np.inner(current.direction, e[i]) *
+#                               current.amps * grid.delta_t)
+#
+#            #  calculate new values for charges on cunductor
+#            grid.modify_charge(conductor.charges[2*i],  # charge to modify
+#                               time=time + 1,  # time to modify the charge at
+#                               velocity=False,  # the new velocity
+#                               acceleration=False,  # the new acceleration
+#                               location=False,  # the charges locaiton
+#                               Q=(charge_1.Q + charge_modifyer),  # coulombs
+#                               print_all=False)  # set true to print info
+#
+#            grid.modify_charge(conductor.charges[2*i+1],  # charge modify
+#                               time=time + 1,  # time to make changes
+#                               velocity=False,  # new velocity
+#                               acceleration=False,  # acceleration
+#                               location=False,  # charges locaiton
+#                               Q=charge_2.Q - charge_modifyer,  # coulombs
+#                               print_all=False)  # set true to print info
 
 
-def electric_currents(E_field, currents, grid, location, time_0):
-    scale = np.linalg.norm(grid.delta) / (4 * np.pi * E_0 * C_0)
+def induction_currents(grid,  # calculate induction
+                       currents,
+                       charges,
+                       conductors,
+                       time):
 
-    # this will calculate the field genorated by the constant currents
-    # loop over the currents in the grid
-    for current in currents:
-        R = location - current.location
-        R = grid.delta * R
-        r = np.linalg.norm(R)
-        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+    for conductor in conductors:
 
-        if r != 0:
-            try:
-                # first find the terms dependent on current.amp
-                time = time_0 + retardation(r, grid)
-                E_field[time][location] = (E_field[time][location] - scale *
-                                           current.amps * current.direction *
-                                           2 / r**2)
+        if len(charges) != 0:
+            conductor.EK_field = EK_charge_field(conductor.EK_field,
+                                                 charges,
+                                                 grid,
+                                                 conductor.location,
+                                                 time)
+        if len(currents) != 0: 
+            conductor.EK_field = EK_current_field(conductor.EK_field,
+                                                  currents,
+                                                  grid,
+                                                  conductor.location,
+                                                  time)
 
-                E_field[time][location] = (E_field[time][location] + scale *
-                                           2 * R * np.dot(current.amps *
-                                           current.direction, R) * 2 /
-                                           (r**4))
+        if np.linalg.norm(conductor.EK_field) > 0:
 
-                # now find the terms dependent on current.dif
-                E_field[time][location] = (E_field[time][location] + scale *
-                                           R * np.dot(current.diff_t, R) /
-                                           (r**3 * C_0))
+            direction = (conductor.EK_field[time] /
+                        np.linalg.norm(conductor.EK_field))
+            # amps = (np.linalg.norm(E_field) /
+            #        (conductor.Ohm * np.inner(grid.delta, direction)))
+            amps = (np.linalg.norm(conductor.EK_field))
 
-                E_field[time][location] = (E_field[time][location] - scale *
-                                           current.diff_t / (r * C_0))
-            except IndexError:
-                pass
-        else:
-            E_field[time_0][location] = E_field[time_0][location]
-    return(E_field)
+            grid.Modify_Current(conductor.current,  # current to modify
+                                time=time * grid.delta_t,  # time to modify
+                                direction=direction,  # the new direction
+                                amps=amps,  # the new amps value
+                                print_all=False)
 
+            print('the new amps value at time ' + str(time) + ' is :  ' + str(amps))
+            print('the new direction at time ' + str(time) + ' is :  ' + str(direction))
+    print('induction_currents functinal')
+    print('')
 
-def currents(H_field, currents, grid, location, time_0):
-    # notice that this is for the H field to finb B maltiply by U_0
-    scale = np.linalg.norm(grid.delta) / (4 * np.pi)
-
-    # this will calculate the field genorated by the currents
-    # loop over the currents in the grid
-    for current in currents:
-        R = location - current.location
-        R = grid.delta * R
-        r = np.linalg.norm(R)
-        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
-
-        if r != 0:
-            try:
-                # pdb.set_trace()
-                # first find the term dependent on current.amp
-                time = time_0 + retardation(r, grid)
-
-                H_field[time][location] = (H_field[time][location] + scale *
-                                           current.amps *
-                                           np.cross(current.direction, R) *
-                                           2 / (r**2))
-
-                # now find the term dependent on current.diff_t
-                H_field[time][location] = (H_field[time][location] + scale *
-                                           np.cross(current.diff_t, R)
-                                           / (r**2 * C_0))
-            except IndexError:
-                pass
-        else:
-            H_field[time_0][location] = H_field[time_0][location]
-    return(H_field)
-
-
-def dynamic_charges_E(E_field, charges, grid, location, time_0):
+# the electrokinetic field genorated by charges
+def EK_charge_field(field,
+                    charges,
+                    grid,
+                    location,
+                    time_0):
+    
     # note that charges are considerd to be at a porticular location
-    scale = 1 / (4 * np.pi * E_0)
+    scale = 1 / (4 * np.pi * E_0 * C_0**2)
 
-    # this will calculate the field genorated by the stationary charges
+    # this will calculate the field genorated by the charges
     # loop over the charges in the grid
+    # this uses equation 4-4.34
+    # from "Electromagnetic retardation and theory of relativity"
+    # unfortuntly the electrostatic and electrokinetic fields are
+    # heavely linked in this situation making seporationg them diffucalt
     for charge in charges:
+        R = grid.delta * location
         R = location - charge.location
-        R = grid.delta * R
+        # R = grid.delta * R
         r = np.linalg.norm(R)
         R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
 
         velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
                           'constant', constant_values=0)
+
+        # we will need a unit vector in the direction of motion
+        velocity_unit = velocity / np.linalg.norm(velocity)
 
         acceleration = (np.pad(charge.acceleration,
                                (0, 3 - len(charge.acceleration)),
                                'constant', constant_values=0))
 
         if r != 0:
+
             # first find the factor common to all terms
-            common_factor = charge.Q / (r**3 *
-                                        (1 - np.dot(R, (velocity /
-                                                    (r * C_0))))**3)
+            common_factor = 1 / (r * (1 - np.dot(R, (velocity /
+                                                    (r * C_0)))))
+
             # find the common terms of the remaining parts
-            radius_factor = (R - r * velocity / C_0)
+            radius_factor = charge.Q * commen_factor * scale
 
             # next find the factor resalting from velocity only
-            velocity_term = (scale * common_factor * radius_factor *
-                             (1 - velocity ** 2 / C_0 ** 2))
-
-            # now find the factor that is dependent on acceleration
-            acceleration_factor = np.cross(radius_factor,
-                                           acceleration / C_0**2)
-
-            # now find the full term that is dependent on acceleration
-            acceleration_term = (scale * common_factor
-                                 * np.cross(R, acceleration_factor))
-
-            # the only case of error should be a time that is to big
-            # use a try to find and in this case exit the loop
-            try:
-                time = time_0 + retardation(r, grid)
-                E_field[time][location] = (E_field[time][location] +
-                                           velocity_term +
-                                           acceleration_term)
-
-            except IndexError:
-                pass
-        else:
-            E_field[time_0][location] = E_field[time_0][location]
-    return (E_field)
-
-
-def dynamic_charges_H(H_field, charges, grid, location, time_0):
-    # note that charges are considerd to be at a porticular location
-    # notice that this is for the H field to finb B maltiply by U_0
-    scale = 1 / (4 * np.pi)
-
-    # this will calculate the field genorated by the stationary charges
-    # loop over the charges in the grid
-    for charge in charges:
-        R = location - charge.location
-        R = grid.delta * R
-        r = np.linalg.norm(R)
-        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
-        velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
-                          'constant', constant_values=0)
-        acceleration = np.pad(charge.acceleration, (0, 3 -
-                                                    len(charge.acceleration)),
-                              'constant', constant_values=0)
-
-        if r != 0:
-            # first find the most used term in the remaning equations
-            most_used_factor = 1/(r * (1 - np.dot(R, (velocity / (r * C_0)))))
-
-            # find the common term
-            common_factor = charge.Q * scale * most_used_factor**2
-
-            # next find the velocity factor
-            velocity_factor = (1 - np.linalg.norm(velocity)**2 / C_0**2
-                               + np.dot(R, acceleration) / C_0**2)
-
-            # now find the full velocity term
-            velocity_term = (common_factor * most_used_factor
-                             * velocity_factor * np.cross(velocity, R))
+            velocity_term = (radius_factor * velocity**2 * (
+                             np.dot(R, velocity.norm) -
+                             r * velocity / C_0)) * common_factor**2
 
             # now find the term that is dependent on acceleration
-            acceleration_term = common_factor * np.cross(acceleration, R) / C_0
+            acceleration_term = radius_factor * (-1) * (acceleration +
+                                  (np.dot(R, acceleration) * R) /
+                                  (c_0 * r))
 
             # the only case of error should be a time that is to big
             # use a try to find and in this case exit the loop
             try:
                 time = time_0 + retardation(r, grid)
-                H_field[time][location] = (H_field[time][location] +
-                                           velocity_term +
-                                           acceleration_term)
+                field[time] = (field[time] +
+                               velocity_term +
+                               acceleration_term)
 
             except IndexError:
                 pass
         else:
-            H_field[time_0][location] = H_field[time_0][location]
-    return (H_field)
+            field[time_0] = field[time_0]
+    return (field)
+    pass
+
+
+# the electrokinetic field genorated by currents
+def EK_current_field(EK_field, currents, grid, location, time_0):
+    scale = np.linalg.norm(grid.delta) / (4 * np.pi * E_0 * C_0)
+
+    # this will calculate the field genorated by the constant currents
+    # loop over the currents in the grid
+    for current in currents:
+        R = grid.delta * location
+        R = location - current.location
+        # R = grid.delta * R
+        r = np.linalg.norm(R)
+        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
+
+        if r != 0:
+            try:
+                # first find the terms dependent on current.amp
+                # this is the electrostatic field
+                time = time_0 + retardation(r, grid)
+                # now find the terms dependent on current.dif_t
+                # this is the electrokinetic field
+
+                electrokinetic = (scale *
+                                  R * np.dot(current.diff_t, R) /
+                                  (r**3 * C_0))
+
+                electrokinetic = (electrokinetic - scale *
+                                           current.diff_t / (r * C_0))
+
+                # if we are just finding the field of a cunductor
+                # we are only intorested in the electrokinetic field
+                # for calculationg currents
+                EK_field[time] = EK_field[time] + electrokinetic
+
+            except IndexError:
+                pass
+        else:
+            EK_field[time_0] = EK_field[time_0]
+
+    # this is used to find the electrokinetic field for a conductor
+
+    return(EK_field)
