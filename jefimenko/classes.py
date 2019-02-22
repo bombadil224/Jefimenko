@@ -29,28 +29,40 @@ class Grid():
     # to initialize a grid just pass it the number of dimensions of the grid
     def __init__(
             self,
-            dimension,
             delta=False,  # this is the size of a step in x, y and z
             size=False,  # this is the size of the grid in meters
             time=.1,  # this is the length of a simulation in secounds
             delta_t=.1  # this is the size of a full time step
     ):
 
-        self.dimension = dimension
+        # self.dimension = dimension
+        self.dimension = 3
 
         if delta is False:
             self.delta = [1.0 for i in range(self.dimension)]
         else:
+            delta = np.pad(delta, (0, 3 - len(delta)),
+                           'constant',
+                           constant_values=1)
+            print('delta paded')
             self.delta = delta
-        self.delta = np.array(self.delta)
+
+        self.delta = np.array(self.delta).astype(float)
 
         if size is False:
             self.size = [10] * self.dimension
+            print('grid size diffalting to ' + str(self.size))
+
         elif len(size) != self.dimension:
-            print('size dimension missmatch grid not genorated')
-            sys.exit()
+            for i in range(len(size), self.dimension):
+                size.append(self.delta[i])
+
+            self.size = size
+            print(' grid size is ' + str(size))
+            print('recommended to give all three measurements')
         else:
             self.size = size
+
         self.size = np.array(self.size)
 
         # this is the amount of time the simulation will simulate
@@ -95,21 +107,21 @@ class Grid():
 
         Q = float(Q)
 
-        if len(location) != self.dimension:
-            print('charge grid dimension missmatch')
-            sys.exit([2])
+        location = np.pad(location, (0, 3 - len(location)),
+                          'constant', constant_values=0)
+        location = np.array(location).astype(float)
 
         if velocity is False:
             velocity = self.dimension * [0]
-        elif len(veocity) != self.dimension:
-            print('velocity dimension missmatch charge not added')
-            sys.exit()
+        elif len(velocity) != self.dimension:
+            velocity = np.pad(velocity, (0, 3 - len(velocity)),
+                              'constant', constant_values=0)
 
         if acceleration is False:
             acceleration = self.dimension * [0]
         elif len(acceleration) != self.dimension:
-            print('acceleration dimension missmatch charge not added')
-            sys.exit()
+            acceleration = np.pad(acceleration, (0, 3-len(velocity)),
+                                  'constant', constant_values=0)
 
         # add the charge to every time step from time to time_size
         for i in range(0, time):
@@ -149,24 +161,17 @@ class Grid():
 
         # if the location of a charge is changed all informaiton
         # about velocity and acceleration is discarded and overwitten.
-        if location is not False:
-            if len(location) != self.dimension:
-                print('locaton dimension missmatch charge not modified')
-                sys.exit()
 
         if velocity is not False:
-            if len(veocity) != self.dimension:
-                print('velocity dimension missmatch charge not modified')
-                sys.exit()
+            if len(velocity) != self.dimension:
+                velocity = np.pad(velocity, (0, 3 - len(velocity)),
+                                  'constant', constant_values=0)
+            self.charges[time][N].velocity = np.array(velocity)
 
         if acceleration is not False:
             if len(acceleration) != self.dimension:
-                print('acceleration dimension missmatch charge not modified')
-                sys.exit()
-
-        if velocity is not False:
-            self.charges[time][N].velocity = np.array(velocity)
-        if acceleration is not False:
+                acceleration = np.pad(acceleration, (0, 3 - len(acceleration)),
+                                      'constant', constant_values=0)
             self.charges[time][N].acceleration = np.array(acceleration)
 
         if Q is not False:
@@ -176,7 +181,12 @@ class Grid():
                 self.charges[t][N].Q = Q
 
         if location is not False:
-            self.charges[time][N].location = np.array(location)
+            if len(location) != self.dimension:
+                location = np.pad(location, (0, 3 - len(location)),
+                                  'constant', constant_values=0)
+
+            for t in range(time, len(self.charges)):
+                self.charges[t][N].location = np.array(location)
 
             temp_location = []
             temp_velocity = []
@@ -206,23 +216,25 @@ class Grid():
                 self.charges[t][N].velocity = temp_velocity[t]
                 self.charges[t][N].acceleration = temp_acceleration[t]
 
-    def Add_Current(self, location,  # location in acual dimenstions
+    def Add_Current(self, location,  # location in acual distance
                     direction=[0, 0, 1],  # the direction the current points
                     Amps=1,  # the amps of the current
                     count=False,   # this will return the index of the current
                     print_all=False):  # print all information on the current
 
         #  this will add a current to the grid notice that a current is a class
-        if len(location) != self.dimension:
-            print('current grid dimension missmatch')
-            sys.exit([2])
-        if len(direction) != 3:
-            print('direction error')
-            sys.exit([2])
+        location = np.pad(location, (0, 3 - len(location)),
+                          'constant', constant_values=0)
 
-        direction = (np.linalg.norm(direction) /
-                     np.linalg.norm(self.delta) *
-                     np.array(direction)).astype(float)
+        direction = np.pad(direction, (0, 3 - len(direction)),
+                           'constant', constant_values=0)
+
+        if np.linalg.norm(direction) == 0:
+            print("Current direction norm can't be zero")
+            sys.exit()
+
+        direction = (np.array(direction).astype(float) /
+                     np.linalg.norm(direction))
 
         location = np.array(location)
         # insure that the current is in the middle of a grid squair
@@ -251,15 +263,18 @@ class Grid():
 
         time_N = int(np.rint(time / self.delta_t))
         if direction is not False:
+            direction = np.pad(direction, (0, 3 - len(location)),
+                               'constant', constant_values=0)
             print(direction)
-            if np.linalg.norm(direction) != 0:
-                direction = np.array(direction)
-                print('Current modified')
-                #scaled_direction = (np.linalg.norm(direction) /
-                #                    np.linalg.norm(self.delta))
 
-                self.currents[time_N][N].direction = (scaled_direction *
-                                                      direction)
+            # notice that the direction is eithor nomalized or zero
+            if np.linalg.norm(direction) != 0:
+                direction = (np.array(direction) /
+                             np.linalg.norm(direction))
+
+                print('Current modified')
+
+                self.currents[time_N][N].direction = direction
             elif np.linalg.norm(direction) == 0:
                 self.currents[time_N][N].direction = np.array(direction)
 
@@ -271,7 +286,8 @@ class Grid():
             print('New Time = ' + str(time_N))
             print('New Amps = ' + str(amps))
             print('New direction = ' + str(direction))
-            print('poresent direction = ' + str(self.currents[time_N][N].direction))
+            print('poresent direction = ' +
+                  str(self.currents[time_N][N].direction))
             print('')
 
     def Add_Conductor(self,
@@ -333,74 +349,13 @@ class Conductor():
         # it is the electrokinetic field
         # self.EK_field = np.zeros( tuple(grid.time_size), dtype='complex')
         # self.EK_field = np.zeros( tuple(grid.time_size, 3), dtype='complex')
-        
+
         self.EK_field = np.zeros(
             tuple(np.append(grid.time_size, [3])), dtype='complex')
-        
 
         self.location = location
         # the location must be of the form [i, j, k]
         # with the same dimention as the grid
-
-###    following section commented out for time being in efort to first get induction currents working
-### this section adds charges to every cunductior on the grid and links them togeather
-### this runs far to slowly at this point and further more is not likely to converg or work
-### recomended to add poremativity and permebilety befor attempting to use this again
-####################
-#        # charges, is the index of the charges that are
-#        # modified by a curent in the cunductor
-#        self.charges = []
-#        found = False  # this will tell if the element was found in the array
-#
-#        #  first add a current at the location of the conductor
-#        #  this will become the induction
-#
-#        # next temporarly hold all locations of charges to be searched
-#        temp_charge_locations = []
-#        for i in range(len(grid.charges[0])):
-#            temp_charge_locations.append(grid.charges[0][i].location)
-#
-#        for i in range(grid.dimension):
-#            #  find the location of the first charge
-#            #  along e[i] needed by cunductor
-#            charge_location = location + grid.delta[i] * e[i] / 2
-#            found = False
-#            # see if this charge already exists if so use it
-#            for j in range(len(temp_charge_locations)):
-#                if np.allclose(charge_location, temp_charge_locations[j]):
-#                    self.charges.append(j)
-#                    found = True
-#                    break
-#
-#            if found is False:
-#                self.charges.append(grid.Add_Charge(location=charge_location,
-#                                                    Q=0,
-#                                                    velocity=False,
-#                                                    acceleration=False,
-#                                                    time=0,
-#                                                    print_all=print_all,
-#                                                    charge_count=True))
-#
-#            found = False
-#            #  next find the location of the mirred charge needed by cunductor
-#            charge_location = location - grid.delta[i] * e[i] / 2
-#
-#            # see if this charge already exists if so use it
-#            for j in range(len(temp_charge_locations)):
-#                if np.allclose(charge_location, temp_charge_locations[j]):
-#                    self.charges.append(j)
-#                    found = True
-#                    break
-#            if found is False:
-#                self.charges.append(grid.Add_Charge(location=charge_location,
-#                                                    Q=0,
-#                                                    velocity=False,
-#                                                    acceleration=False,
-#                                                    time=0,
-#                                                    print_all=print_all,
-#                                                    charge_count=True))
-############################################
-        # poreveus section commented out to first get induction currents working see top
 
         # all ohm values are given in Ohm Meters at 20C
         if materiel == 'aluminium':
@@ -453,5 +408,3 @@ class Conductor():
             self.Ohm = 5.5 * 10**-8
         else:
             self.Ohm = 1.7 * 10**-8
-
-

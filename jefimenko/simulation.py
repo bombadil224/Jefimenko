@@ -28,28 +28,30 @@ import time
 import pdb
 
 
-def timed_range(number_set):  # this will keep trak of how far compleat the simulaiton is
+# this will keep trak of how far compleat the simulaiton is
+def timed_range(number_set):
     n = 0
     m = number_set
     for i in range(number_set):
-        b = "percent compleat = " + str(100 * (i + 1)/ number_set)
+        b = "percent compleat = " + str(100 * (i + 1) / number_set)
         n = n + 1
         if i != number_set - 1:
             print(b, end="\r")
             yield(i)
         else:
             print(b, end="\r")
-            print('compleat, '+ str(b) + '%                    ')
+            print('compleat, ' + str(b) + '%                    ')
             yield(i)
 
 
+# this will run the acual simulation
 def simulate(grid, charge_currents=False, induction=False):
     print('simulating grid')
     # this tells if the differentials need to be updated
     update_diff = True
+
     # this is used to flush the print statments befor the loop starts
     sys.stdout.flush()
-    # this will run the simulation of a grid and charges
 
     # start a loop that will simulate the system for every point on the grid
     # location is the location on the grid
@@ -64,87 +66,30 @@ def simulate(grid, charge_currents=False, induction=False):
 
         for location in np.ndindex(tuple(grid.shape)):
 
-            # find the part of E that depends on charges
-            grid.grid['E'] = dynamic_charges_E(grid.grid['E'],
-                                               grid.charges[time],
-                                               grid,
-                                               location,
-                                               time)
+            # make sure that the locaiton that is used
+            # is the acual location
+            location_dx = location * grid.delta
 
-            # next find the part of E that is dependent on currents
-            grid.grid['E'] = electric_currents(grid.grid['E'],
-                                               grid.currents[time],
-                                               grid,
-                                               location,
-                                               time)
-
-            # now find H
-            # first find the part of H that is dependent on currents
-            grid.grid['H'] = currents(grid.grid['H'],
-                                      grid.currents[time],
-                                      grid,
-                                      location,
-                                      time)
-
-            # now find the part of H that depends on moving charges
-            grid.grid['H'] = dynamic_charges_H(grid.grid['H'],
-                                               grid.charges[time],
-                                               grid,
-                                               location,
-                                               time)
+            (grid.grid['E'][:, location[0], location[1], location[2]],
+             grid.grid['H'][:, location[0], location[1], location[2]]) = (
+             field_calculator(grid.grid['E'][:, location[0],
+                                             location[1], location[2]],
+                              grid.grid['H'][:, location[0],
+                                             location[1], location[2]],
+                              grid.charges[time],
+                              grid.currents[time],
+                              grid, location_dx, time))
 
         if induction is False:
             pass
         elif induction is True:  # find induction currents in conductors
-            induction_currents(grid,
-                               grid.currents[time],
-                               grid.charges[time],
-                               grid.conductors,
-                               time)
-#######################
-#  this modifies charges for each current see part removed from classes cunductors for further details
-#        if charge_currents is False:
-#            pass
-#        elif charge_currents is True:   # this will add charges resulting
-#                                        # from the currents in cundoctors
-#            current_charges(grid,
-#                            grid.currents[time],
-#                            grid.conductors, time)
-#
-#  this part removed untill further notice
-#######################
+            pass
+            # induction_currents(grid,
+            #                    grid.currents[time],
+            #                    grid.charges[time],
+            #                    grid.conductors,
+            #                    time)
     print('grid simulated')
-
-
-#def current_charges(grid, currents, conductors, time):
-#    # this will make cunductors modify charges and currents
-#    for conductor in conductors:
-#        for i in range(3):
-#
-#            # find charges to modify and modifying current
-#            charge_1 = grid.charges[time][conductor.charges[2*i]]
-#            charge_2 = grid.charges[time][conductor.charges[2*i+1]]
-#            current = grid.currents[time][conductor.current]
-#
-#            charge_modifyer = (np.inner(current.direction, e[i]) *
-#                               current.amps * grid.delta_t)
-#
-#            #  calculate new values for charges on cunductor
-#            grid.modify_charge(conductor.charges[2*i],  # charge to modify
-#                               time=time + 1,  # time to modify the charge at
-#                               velocity=False,  # the new velocity
-#                               acceleration=False,  # the new acceleration
-#                               location=False,  # the charges locaiton
-#                               Q=(charge_1.Q + charge_modifyer),  # coulombs
-#                               print_all=False)  # set true to print info
-#
-#            grid.modify_charge(conductor.charges[2*i+1],  # charge modify
-#                               time=time + 1,  # time to make changes
-#                               velocity=False,  # new velocity
-#                               acceleration=False,  # acceleration
-#                               location=False,  # charges locaiton
-#                               Q=charge_2.Q - charge_modifyer,  # coulombs
-#                               print_all=False)  # set true to print info
 
 
 def induction_currents(grid,  # calculate induction
@@ -161,7 +106,7 @@ def induction_currents(grid,  # calculate induction
                                                  grid,
                                                  conductor.location,
                                                  time)
-        if len(currents) != 0: 
+        if len(currents) != 0:
             conductor.EK_field = EK_current_field(conductor.EK_field,
                                                   currents,
                                                   grid,
@@ -171,7 +116,7 @@ def induction_currents(grid,  # calculate induction
         if np.linalg.norm(conductor.EK_field) > 0:
 
             direction = (conductor.EK_field[time] /
-                        np.linalg.norm(conductor.EK_field))
+                         np.linalg.norm(conductor.EK_field))
             # amps = (np.linalg.norm(E_field) /
             #        (conductor.Ohm * np.inner(grid.delta, direction)))
             amps = (np.linalg.norm(conductor.EK_field))
@@ -182,10 +127,13 @@ def induction_currents(grid,  # calculate induction
                                 amps=amps,  # the new amps value
                                 print_all=False)
 
-            print('the new amps value at time ' + str(time) + ' is :  ' + str(amps))
-            print('the new direction at time ' + str(time) + ' is :  ' + str(direction))
+            print('the new amps value at time ' + str(time) + ' is :  ' +
+                  str(amps))
+            print('the new direction at time ' + str(time) + ' is :  ' +
+                  str(direction))
     print('induction_currents functinal')
     print('')
+
 
 # the electrokinetic field genorated by charges
 def EK_charge_field(field,
@@ -193,7 +141,7 @@ def EK_charge_field(field,
                     grid,
                     location,
                     time_0):
-    
+
     # note that charges are considerd to be at a porticular location
     scale = 1 / (4 * np.pi * E_0 * C_0**2)
 
@@ -224,7 +172,7 @@ def EK_charge_field(field,
 
             # first find the factor common to all terms
             common_factor = 1 / (r * (1 - np.dot(R, (velocity /
-                                                    (r * C_0)))))
+                                                     (r * C_0)))))
 
             # find the common terms of the remaining parts
             radius_factor = charge.Q * commen_factor * scale
@@ -235,9 +183,10 @@ def EK_charge_field(field,
                              r * velocity / C_0)) * common_factor**2
 
             # now find the term that is dependent on acceleration
-            acceleration_term = radius_factor * (-1) * (acceleration +
-                                  (np.dot(R, acceleration) * R) /
-                                  (c_0 * r))
+            acceleration_term = (radius_factor * (-1)
+                                 * (acceleration +
+                                    (np.dot(R, acceleration) * R) /
+                                    (c_0 * r)))
 
             # the only case of error should be a time that is to big
             # use a try to find and in this case exit the loop
@@ -281,7 +230,7 @@ def EK_current_field(EK_field, currents, grid, location, time_0):
                                   (r**3 * C_0))
 
                 electrokinetic = (electrokinetic - scale *
-                                           current.diff_t / (r * C_0))
+                                  current.diff_t / (r * C_0))
 
                 # if we are just finding the field of a cunductor
                 # we are only intorested in the electrokinetic field
