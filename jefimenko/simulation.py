@@ -20,12 +20,16 @@ from .derivative import *
 from .charge_current_integrals import *
 from .constants import *
 from .classes import *
+from .boundary import *
+from .polarization import *
+
 import numpy as np
 import sys
 from math import isnan as isnan
-import time
+import time as Time
 
-import pdb
+
+# this file handels the acual simulation
 
 
 # this will keep trak of how far compleat the simulaiton is
@@ -44,19 +48,68 @@ def timed_range(number_set):
             yield(i)
 
 
-# this will run the acual simulation
-def simulate(grid, charge_currents=False, induction=False):
-    print('simulating grid')
+# this will run the acual simulation of a grid
+def simulate(grid,
+             charge_currents=False,
+             induction=False,
+             magnetization=False,
+             Test=True):
+
+    print('simulation started')
+    start = Time.time()
+
     # this tells if the differentials need to be updated
     update_diff = True
 
+    # befor we run the simulation see if we are using Permeability
+    if grid.free_space is False:
+        # first find the gradient of the polarization
+        grid.Permittivity_normals = normals(grid.Permittivity,
+                                            grid.shape,
+                                            grid.delta)
+        pass
+
+    # find every region of the grid
+    # regions, boundaries = genorate_regions(grid)
+
+    ########################################################
+    # this code uses the idea of using regions for calculationg fields
+    '''' for a first use a mothed of polarization will be used
+    the porimary use of this will be to insure correct porapugation
+    speed when C changes '''
+    # this is test code and needs replaced
+    regions = []
+    region = []
+
+    boundaries = []
+    boundary = []
+
+    for i in grid.boundary:
+        boundary.append(i)
+
+    for i in (np.ndindex(tuple(grid.shape))):
+        region.append(i)
+    regions.append(region)
+    boundaries.append(boundary)
+
+    ########################################################
+
     # this is used to flush the print statments befor the loop starts
+    # this works in combination with grid.time_size and may not be needed
     sys.stdout.flush()
 
     # start a loop that will simulate the system for every point on the grid
     # location is the location on the grid
-    # where the E field is being calculated
+    # where the E and H field is being calculated
+    print('stage one charges and currents')
     for time in timed_range(grid.time_size):
+
+        # now calculate the polarization field and all genorated dipoles
+        # from it at time, time
+        # note that this should be the first thing that is done
+
+        # the polarization field is realy only kept for future analysis
+
         # update_diff must be tested at the start of each time loop incase
         # something is changed. this will be needed when moving charges
         # are introduced
@@ -64,32 +117,112 @@ def simulate(grid, charge_currents=False, induction=False):
             currents_time_diff(grid)
             update_diff = False
 
-        for location in np.ndindex(tuple(grid.shape)):
+        # this will have to be changed to a region by region calculation
+        # porabubly best to move it to a new modual
 
-            # make sure that the locaiton that is used
-            # is the acual location
-            location_dx = location * grid.delta
+        # for location in np.ndindex(tuple(grid.shape)):
+        '''' these next two for loops are used for mothed of regions
+        this is needed to insure porapugation speed'''
 
-            (grid.grid['E'][:, location[0], location[1], location[2]],
-             grid.grid['H'][:, location[0], location[1], location[2]]) = (
-             field_calculator(grid.grid['E'][:, location[0],
-                                             location[1], location[2]],
-                              grid.grid['H'][:, location[0],
-                                             location[1], location[2]],
-                              grid.charges[time],
-                              grid.currents[time],
-                              grid, location_dx, time))
+        for (region, boundary) in zip(regions, boundaries):
+            for location in region:
 
-        if induction is False:
-            pass
-        elif induction is True:  # find induction currents in conductors
-            pass
-            # induction_currents(grid,
-            #                    grid.currents[time],
-            #                    grid.charges[time],
-            #                    grid.conductors,
-            #                    time)
-    print('grid simulated')
+                # make sure that the location that is used
+                # is the acual location not just its index
+                location_dx = location * grid.delta
+
+                # calculate the fields strength at this location and time
+                (grid.grid['E'][:, location[0], location[1], location[2]],
+                 grid.grid['H'][:, location[0], location[1], location[2]],
+                 grid.grid['B'][:, location[0], location[1], location[2]],) = (
+                 field_calculator(grid.grid['E'][:, location[0],
+                                                 location[1], location[2]],
+                                  grid.grid['H'][:, location[0],
+                                                 location[1], location[2]],
+                                  grid.grid['B'][:, location[0],
+                                                 location[1], location[2]],
+                                  grid.charges[time],
+                                  grid.currents[time],
+                                  grid.dipoles[time],
+                                  grid, location_dx,
+                                  time))
+
+########################################################
+        # this code uses the idea of using regions for calculationg fields
+        '''' this code is needed to isure porapugation speed in different media
+        note that this needs to be done as the simulation procedes through time
+        to insure that things porapugate poraporly as this will efect the
+        polarization field '''
+
+        ''' now simulate the boundary of every region this must be done
+        inside of the first time loop so that the polarization field is
+        poraporly updated '''
+        for (region, boundary) in zip(regions, boundaries):
+            grid.grid['E'], grid.grid['H'] = boundary_simulation(region,
+                                                                 boundary,
+                                                                 time,
+                                                                 grid.grid['E'],
+                                                                 grid.grid['H'],
+                                                                 grid)
+###############################################################################
+
+    if grid.free_space is False:  # this calculates the effects of permittivity
+        print('stage two permittivity')
+
+        # this calculates the effects of permittivity
+        ''' we now integrate over the hole thing again
+            this time finding the polorization field '''
+
+        for time in timed_range(grid.time_size):
+
+            # first calculate the polarization vector
+            grid.grid['P'][time] = polarization_field(grid.grid['E'][time],
+                                                      grid.grid['P'][time],
+                                                      grid.Permittivity,
+                                                      grid.shape, grid)
+
+            grid.grid_P_div = divergence(grid.grid['P'][time], grid.delta)
+
+            for charge in grid.charges[time]:
+                charge_loc_index = tuple((charge.location /
+                                          grid.delta).astype(int))
+
+                grid.grid_P_div[charge_loc_index] = [0, 0, 0]
+                grid.grid['P'][time][charge_loc_index] = [0, 0, 0]
+
+                pass
+
+            for location in region:  # now find the acual polorization effect
+
+                # grid.grid['P_E'] = grid.grid['P_E'] + grid.grid['E']
+
+                location_dx = location * grid.delta
+
+                grid.grid['P_E'][:,
+                                 location[0],
+                                 location[1],
+                                 location[2]] = (
+                    grid.grid['P_E'][:,
+                                     location[0],
+                                     location[1],
+                                     location[2]] +
+                    polarization_effect(grid.grid['E'][:,
+                                        location[0],
+                                        location[1],
+                                        location[2]],
+                                        grid.grid['P'][time],
+                                        grid.grid_P_div,
+                                        grid.Permittivity_normals,
+                                        location_dx,
+                                        time,
+                                        grid.delta, grid))
+                pass
+
+        grid.grid['E'] = grid.grid['E'] + grid.grid['P_E']
+
+    end = Time.time()
+    print('grid simulated in ' + str(end - start) + ' seconds')
+    print()
 
 
 def induction_currents(grid,  # calculate induction
@@ -100,6 +233,8 @@ def induction_currents(grid,  # calculate induction
 
     for conductor in conductors:
 
+        # first find the electorkinetic field
+        # resulting from the charges and currents
         if len(charges) != 0:
             conductor.EK_field = EK_charge_field(conductor.EK_field,
                                                  charges,
@@ -113,135 +248,33 @@ def induction_currents(grid,  # calculate induction
                                                   conductor.location,
                                                   time)
 
+        # if this is not zero calculate the induction currents
+        # at the next time step
+
         if np.linalg.norm(conductor.EK_field) > 0:
 
             direction = (conductor.EK_field[time] /
-                         np.linalg.norm(conductor.EK_field))
+                         np.linalg.norm(conductor.EK_field[time]))
             # amps = (np.linalg.norm(E_field) /
             #        (conductor.Ohm * np.inner(grid.delta, direction)))
-            amps = (np.linalg.norm(conductor.EK_field))
+            if time > 0:
+                amps = ((np.linalg.norm(conductor.EK_field[time] -
+                                        conductor.EK_field[time - 1]))
+                        / conductor.Ohm)
+            else:
+                amps = 0
 
-            grid.Modify_Current(conductor.current,  # current to modify
-                                time=time * grid.delta_t,  # time to modify
-                                direction=direction,  # the new direction
-                                amps=amps,  # the new amps value
-                                print_all=False)
+            if grid.time_size > time + 1:
+                grid.Modify_Current(conductor.current,  # current to modify
+                                    time=((time + 1) * grid.delta_t),  # time
+                                    direction=direction,  # the new direction
+                                    amps=amps,  # the new amps value
+                                    print_all=False)
 
-            print('the new amps value at time ' + str(time) + ' is :  ' +
+            print('the new amps value at time ' + str(time + 1) + ' is :  ' +
                   str(amps))
-            print('the new direction at time ' + str(time) + ' is :  ' +
+            print('the new direction at time ' + str(time + 1) + ' is :  ' +
                   str(direction))
+
     print('induction_currents functinal')
     print('')
-
-
-# the electrokinetic field genorated by charges
-def EK_charge_field(field,
-                    charges,
-                    grid,
-                    location,
-                    time_0):
-
-    # note that charges are considerd to be at a porticular location
-    scale = 1 / (4 * np.pi * E_0 * C_0**2)
-
-    # this will calculate the field genorated by the charges
-    # loop over the charges in the grid
-    # this uses equation 4-4.34
-    # from "Electromagnetic retardation and theory of relativity"
-    # unfortuntly the electrostatic and electrokinetic fields are
-    # heavely linked in this situation making seporationg them diffucalt
-    for charge in charges:
-        R = grid.delta * location
-        R = location - charge.location
-        # R = grid.delta * R
-        r = np.linalg.norm(R)
-        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
-
-        velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
-                          'constant', constant_values=0)
-
-        # we will need a unit vector in the direction of motion
-        velocity_unit = velocity / np.linalg.norm(velocity)
-
-        acceleration = (np.pad(charge.acceleration,
-                               (0, 3 - len(charge.acceleration)),
-                               'constant', constant_values=0))
-
-        if r != 0:
-
-            # first find the factor common to all terms
-            common_factor = 1 / (r * (1 - np.dot(R, (velocity /
-                                                     (r * C_0)))))
-
-            # find the common terms of the remaining parts
-            radius_factor = charge.Q * commen_factor * scale
-
-            # next find the factor resalting from velocity only
-            velocity_term = (radius_factor * velocity**2 * (
-                             np.dot(R, velocity.norm) -
-                             r * velocity / C_0)) * common_factor**2
-
-            # now find the term that is dependent on acceleration
-            acceleration_term = (radius_factor * (-1)
-                                 * (acceleration +
-                                    (np.dot(R, acceleration) * R) /
-                                    (c_0 * r)))
-
-            # the only case of error should be a time that is to big
-            # use a try to find and in this case exit the loop
-            try:
-                time = time_0 + retardation(r, grid)
-                field[time] = (field[time] +
-                               velocity_term +
-                               acceleration_term)
-
-            except IndexError:
-                pass
-        else:
-            field[time_0] = field[time_0]
-    return (field)
-    pass
-
-
-# the electrokinetic field genorated by currents
-def EK_current_field(EK_field, currents, grid, location, time_0):
-    scale = np.linalg.norm(grid.delta) / (4 * np.pi * E_0 * C_0)
-
-    # this will calculate the field genorated by the constant currents
-    # loop over the currents in the grid
-    for current in currents:
-        R = grid.delta * location
-        R = location - current.location
-        # R = grid.delta * R
-        r = np.linalg.norm(R)
-        R = np.pad(R, (0, 3 - len(R)), 'constant', constant_values=0)
-
-        if r != 0:
-            try:
-                # first find the terms dependent on current.amp
-                # this is the electrostatic field
-                time = time_0 + retardation(r, grid)
-                # now find the terms dependent on current.dif_t
-                # this is the electrokinetic field
-
-                electrokinetic = (scale *
-                                  R * np.dot(current.diff_t, R) /
-                                  (r**3 * C_0))
-
-                electrokinetic = (electrokinetic - scale *
-                                  current.diff_t / (r * C_0))
-
-                # if we are just finding the field of a cunductor
-                # we are only intorested in the electrokinetic field
-                # for calculationg currents
-                EK_field[time] = EK_field[time] + electrokinetic
-
-            except IndexError:
-                pass
-        else:
-            EK_field[time_0] = EK_field[time_0]
-
-    # this is used to find the electrokinetic field for a conductor
-
-    return(EK_field)

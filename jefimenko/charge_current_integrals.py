@@ -19,51 +19,114 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 # this file holds the moduals for calculationg the jefimenko equations
 from .derivative import *
 from .constants import *
+
 import numpy as np
 import sys
 
 
-def retardation(r, grid):
-    return(int(np.rint((r / C_0) / grid.delta_t)))
+def retardation(r, grid, c=C_0):
+    # this function calculates the retardation used in all other functions
+    return(int(np.rint((r / c) / grid.delta_t)))
 
 
-def field_calculator(E_field, H_field,
-                     charges, currents,
+def field_calculator(E_field, H_field, B_field,
+                     charges, currents, dipoles,
                      grid, location, time_0):
+    # this function maneges the calculaiton of the E and H fields
 
+    # first we need some grids to hold the added field strenth
     field_E = np.zeros((grid.time_size, 3))
     field_H = np.zeros((grid.time_size, 3))
+    field_B = np.zeros((grid.time_size, 3))
     time = time_0
+
+    # find the field resulating form the currents at time "time"
     for current in (currents):
+        # find the distance from the current to the locaiton of intrest
         R = location - current.location
         r = np.linalg.norm(R)
 
         if r != 0:
+            # calculate the time at which to add the new field quantity
             time = time_0 + retardation(r, grid)
 
+            # if time is less then the length of the simulaiton
+            # calculate the added field
             if time < grid.time_size:
-                field_E[time] += Electric_field_currents(current, r, R, grid)
-                field_H[time] += Magnetic_field_currents(current, r, R, grid)
+                field_E[time] = (field_E[time] +
+                                 Electric_field_currents(current,
+                                                         location,
+                                                         r,
+                                                         R,
+                                                         grid))
+                field_H[time], field_B[time] = (field_H[time] +
+                                 Magnetic_field_currents(current,
+                                                         r,
+                                                         R,
+                                                         grid))
+                
 
     time = time_0
+    # now repet the above for charges
     for charge in charges:
+        # calcualte the distance to the charge
         R = location - charge.location
         r = np.linalg.norm(R)
 
+        # find the field resulating from the charge at time "time"
         if r != 0:
             time = time_0 + retardation(r, grid)
 
+            # if time is less then the length of the
+            # simulaiton calculate the added field
             if time < grid.time_size:
-                field_E[time] += Electric_field_charges(charge, r, R, grid)
-                field_H[time] += Magnetic_field_charges(charge, r, R, grid)
+                field_E[time] = (field_E[time] +
+                                 Electric_field_charges(charge,
+                                                        location,
+                                                        r,
+                                                        R,
+                                                        grid))
+                field_H[time], field_B[time] = (field_H[time] +
+                                 Magnetic_field_charges(charge,
+                                                        location,
+                                                        r,
+                                                        R,
+                                                        grid))
 
+    # now repete the above for dipoles
+#    for dipole in dipoles:
+#        # calcualte the distance to the dipole
+#        R = location - dipole.location
+#        r = np.linalg.norm(R)
+#        # find the field resulating from the dipole at time "time"
+#        if r != 0:
+#            time = time_0 + retardation(r, grid)
+#
+#            # if time is less then the length of the
+#            # simulaiton calculate the added field
+#            if time < grid.time_size:
+#                field_E[time] = (field_E[time] +
+#                                 Electric_field_dipole(dipole, r, R, grid))
+
+    # E_field_Permittivity(grid)
+    # H_field_Permeability(grid)
+
+    # add everything up
     E_field = E_field + field_E
     H_field = H_field + field_H
-    return(E_field, H_field)
+    B_field = B_field + field_B
+
+    return(E_field, H_field, B_field)
 
 
-def Electric_field_currents(current, r, R, grid):
-    scale = 1 / (4 * np.pi * E_0 * C_0)
+def Electric_field_currents(current, location, r, R, grid):
+    # find the E field do to currents on the grid
+    # see equation 2-2.12 of
+    # electromagnetic retardation and theory of relativity
+
+    scale = 1 / (4 * np.pi * E_0 *
+                 # C_0 * grid.get_Permittivity(location))
+                 C_0 * grid.get_Permittivity(current.location))
     # first find the terms dependent on current.amp
     # this is the electrostatic field
 
@@ -93,6 +156,10 @@ def Electric_field_currents(current, r, R, grid):
 
 
 def Magnetic_field_currents(current, r, R, grid):
+    # this function finds the H field do to currents on the field
+    # see equation 2-2.5 of
+    # electromagnetic retardation and theory of relativity
+
     # calculate the H field resulting from the currents
     scale = 1 / (4 * np.pi)
 
@@ -106,12 +173,18 @@ def Magnetic_field_currents(current, r, R, grid):
 
     # find the total H field
     H_field = H_field_amps + H_field_diff_t
-    return(H_field_amps + H_field_diff_t)
+
+    B_field = U_0 * H_field
+    return(H_field, B_field)
 
 
-def Electric_field_charges(charge, r, R, grid):
-    # find the electric field resulting from charges
-    scale = 1 / (4 * np.pi * E_0)
+def Electric_field_charges(charge, location, r, R, grid):
+    # this function finds the E field resulting from charges
+    # see equation 4-4.34 of
+    # electromagnetic retardation and theory of relativity
+
+    # scale = 1 / (4 * np.pi * E_0 * grid.get_Permittivity(location))
+    scale = 1 / (4 * np.pi * E_0 * grid.get_Permittivity(charge.location))
 
     velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
                       'constant', constant_values=0)
@@ -144,8 +217,11 @@ def Electric_field_charges(charge, r, R, grid):
     return(E_field)
 
 
-def Magnetic_field_charges(charge, r, R, grid):
-    # find the H field resulting from charges
+def Magnetic_field_charges(charge, location, r, R, grid):
+    # this function finds the H field resulting from charges
+    # see equation 4-5.10 of
+    # electromagnetic retardation and theory of relativity
+
     scale = 1 / (4 * np.pi)
 
     velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
@@ -175,4 +251,24 @@ def Magnetic_field_charges(charge, r, R, grid):
 
     # find the total H field
     H_field = (velocity_term + acceleration_term)
-    return(H_field)
+
+    B_field = U_0 * H_field
+    return(H_field, B_field)
+
+
+def Electric_field_dipole(dipole, location, r, R, grid):
+    # this is the equation for a electric dipole from page 449
+    # of handbook of phisics
+    # also see equation 5-4.13 from electricity and magnetism by jefimenko
+    scale = 1 / (4 * np.pi * E_0)
+
+    # first find the term requiering a dot product
+    first_term = (3 * np.dot(dipole.dipole_moment, R) * R) / r**5
+
+    # now find the remaining term
+    last_term = dipole.dipole_moment / r**3
+
+    E_field = scale * (first_term - last_term)
+    print('E_field test ' + str(E_field))
+    print(dipole.dipole_moment)
+    return(E_field)

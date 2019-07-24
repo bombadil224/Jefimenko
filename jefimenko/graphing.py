@@ -23,6 +23,8 @@ import sys
 
 from scipy.interpolate import interp1d
 
+# this file handels the functions needed for graphing
+
 
 # ths will plot the grid charges currents and conductors
 def plot_grid(Grid, time=0):
@@ -147,24 +149,36 @@ def plot_grid(Grid, time=0):
 
     elif Grid.dimension == 3:
 
+        print('this is the grid layout')
         x, y, z = [], [], []
         Q = []
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
-        for i in range(len(Grid.charges[time])):
-            x.append(Grid.charges[time][i].location[0])
-            y.append(Grid.charges[time][i].location[1])
-            z.append(Grid.charges[time][i].location[2])
-            # Q.append((1 ,0 ,Grid.charges[time][i].Q))
-            q = Grid.charges[time][i].Q
-            if q > 10:
-                q = 10
+        try:
+            for i in range(len(Grid.charges[time])):
+                x.append(Grid.charges[time][i].location[0])
+                y.append(Grid.charges[time][i].location[1])
+                z.append(Grid.charges[time][i].location[2])
+                # Q.append((1 ,0 ,Grid.charges[time][i].Q))
+                q = Grid.charges[time][i].Q
+                if q > 10:
+                    q = 10
 
-            Q.append((1, 0, np.interp(q, [0, 1], [0, 10])))
+                Q.append((1, 0, np.interp(q, [0, 1], [0, 10])))
 
-        ax.scatter(x, y, z, c='r', marker='o')
+            ax.scatter(x, y, z, c='r', marker='o')
+        except:
+            pass
+
+        x, y, z = [], [], []
+        for i in range(len(Grid.Permittivity)):
+            x.append(Grid.Permittivity[i].location[0])
+            y.append(Grid.Permittivity[i].location[1])
+            z.append(Grid.Permittivity[i].location[2])
+
+        ax.scatter(x, y, z, c='y', marker='d')
 
         x, y, z = [], [], []
         for i in range(len(Grid.conductors)):

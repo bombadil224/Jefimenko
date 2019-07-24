@@ -16,11 +16,14 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+# this fie initializes the program
+
 __version__ = '0.0.1'
 __author__ = 'Nehemiah Null'
 __contact__ = '<Bombadil224@gmail.com>'
 __license__ = "GPLv3"
 __date__ = '2018/12/02'
+
 
 from .simulation import *
 from .classes import *

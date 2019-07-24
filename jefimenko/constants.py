@@ -19,6 +19,8 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 from numpy import pi as pi
 from numpy import array as array
 
+# this file holds the constants that are needed
+
 C_0 = 299792458  # this is the speed of light in meters per secound
 K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
 E_0 = (4 * pi * K_e) ** -1  # free space permittivity
