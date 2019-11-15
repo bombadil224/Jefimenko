@@ -76,16 +76,16 @@ def divergence(field, delta):
     # pdb.set_trace()
     return (div)
 
-    
+
 # call delta as grid.delta
 def curl_3d(field, delta):
     curl = []
 
-    grad = np.gradient(field,delta[0],delta[1],delta[2],axis = (0,1,2))
+    grad = np.gradient(field, delta[0], delta[1], delta[2], axis=(0, 1, 2))
     for i in range(len(grad)):
         for j in range(len(grad[0])):
             for k in range(len(grad[0][0])):
-                curl.append([grad[1][i ,j ,k ,2] - grad[2][i ,j ,k ,1],
-                            grad[2][i ,j ,k ,0] - grad[0][i ,j ,k ,2] ,
-                            grad[0][i ,j ,k ,1] - grad[1][i ,j ,k ,0]])
+                curl.append([grad[1][i, j, k, 2] - grad[2][i, j, k, 1],
+                            grad[2][i, j, k, 0] - grad[0][i, j, k, 2],
+                            grad[0][i, j, k, 1] - grad[1][i, j, k, 0]])
     return(np.array(curl))

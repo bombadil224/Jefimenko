@@ -113,25 +113,26 @@ def boundary_simulation(region,  # the region being simulated
                     # calculate the field
                     if r != 0:
                         for k in range(len(WaveLength)):
-                            diffraction_angle = (np.arccos(np.dot(r, E_wave) /
-                                                           (np.linalg.norm(r) *
-                                                            np.linalg.norm(E_wave))))
+                            diff_angle = (np.arccos(np.dot(r, E_wave) /
+                                                    (np.linalg.norm(r) *
+                                                     np.linalg.norm(E_wave))))
 
                             E_field[time][tuple(location)] = (
                                 E_field[time][tuple(location)] +
-                                diffraction(diffraction_angle[k],
+                                diffraction(diff_angle[k],
                                             E_wave[k] *
                                             NormAmplitude[k],
                                             grid.delta[0],
                                             WaveLength[k]))
 
-                            diffraction_angle = (np.arccos(np.dot(r, H_wave) /
-                                                          (np.linalg.norm(r) *
-                                                           np.linalg.norm(H_wave))))
+                            # find the diffraction angle
+                            diff_angle = (np.arccos(np.dot(r, H_wave) /
+                                                    (np.linalg.norm(r) *
+                                                     np.linalg.norm(H_wave))))
 
                             H_field[time][tuple(location)] = (
                                 H_field[time][tuple(location)] +
-                                diffraction(diffraction_angle[k],
+                                diffraction(diff_angle[k],
                                             NormAmplitude[k],
                                             grid.delta[0],
                                             WaveLength[k]))
@@ -146,7 +147,7 @@ def boundary_simulation(region,  # the region being simulated
                 r = np.linalg.norm(R)
 
                 # calculat the retardation time for the field
-                time = time_0 + retardation(r, grid)
+                time = time_0 + retardation(r, grid.delta_t)
                 if time < len(E_field):
                     if r != 0:
                         loc = tuple(location.astype(int))

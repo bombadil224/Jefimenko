@@ -27,24 +27,28 @@ import numpy as np
 import sys
 from math import isnan as isnan
 import time as Time
+import types
 
+import re
 
 # this file handels the acual simulation
 
 
 # this will keep trak of how far compleat the simulaiton is
-def timed_range(number_set):
+def timed_range(start, end, print_time=True):
     n = 0
-    m = number_set
-    for i in range(number_set):
-        b = "percent compleat = " + str(100 * (i + 1) / number_set)
+    # m = number_set
+    for i in range(start, end):
+        b = "percent compleat = " + str(100 * (i + 1) / (end - start))
         n = n + 1
-        if i != number_set - 1:
-            print(b, end="\r")
+        if i != end:
+            if print_time is True:
+                print(b, end="\r")
             yield(i)
         else:
-            print(b, end="\r")
-            print('compleat, ' + str(b) + '%                    ')
+            if print_time is True:
+                print(b, end="\r")
+                print('compleat, ' + str(b) + '%                    ')
             yield(i)
 
 
@@ -53,9 +57,18 @@ def simulate(grid,
              charge_currents=False,
              induction=False,
              magnetization=False,
-             Test=True):
+             Test=True,
+             plasma_time=False):
 
-    print('simulation started')
+    if plasma_time is False:
+        time_region = [0, grid.time_size]
+        print_time = True
+    else:
+        time_region = plasma_time
+        print_time = False
+
+    if plasma_time is False:
+        print('simulation started')
     start = Time.time()
 
     # this tells if the differentials need to be updated
@@ -101,70 +114,14 @@ def simulate(grid,
     # start a loop that will simulate the system for every point on the grid
     # location is the location on the grid
     # where the E and H field is being calculated
-    print('stage one charges and currents')
-    for time in timed_range(grid.time_size):
+    if plasma_time is False:
+        print('stage one charges and currents')
 
-        # now calculate the polarization field and all genorated dipoles
-        # from it at time, time
-        # note that this should be the first thing that is done
-
-        # the polarization field is realy only kept for future analysis
-
-        # update_diff must be tested at the start of each time loop incase
-        # something is changed. this will be needed when moving charges
-        # are introduced
-        if update_diff is True:
-            currents_time_diff(grid)
-            update_diff = False
-
-        # this will have to be changed to a region by region calculation
-        # porabubly best to move it to a new modual
-
-        # for location in np.ndindex(tuple(grid.shape)):
-        '''' these next two for loops are used for mothed of regions
-        this is needed to insure porapugation speed'''
-
-        for (region, boundary) in zip(regions, boundaries):
-            for location in region:
-
-                # make sure that the location that is used
-                # is the acual location not just its index
-                location_dx = location * grid.delta
-
-                # calculate the fields strength at this location and time
-                (grid.grid['E'][:, location[0], location[1], location[2]],
-                 grid.grid['H'][:, location[0], location[1], location[2]],
-                 grid.grid['B'][:, location[0], location[1], location[2]],) = (
-                 field_calculator(grid.grid['E'][:, location[0],
-                                                 location[1], location[2]],
-                                  grid.grid['H'][:, location[0],
-                                                 location[1], location[2]],
-                                  grid.grid['B'][:, location[0],
-                                                 location[1], location[2]],
-                                  grid.charges[time],
-                                  grid.currents[time],
-                                  grid.dipoles[time],
-                                  grid, location_dx,
-                                  time))
-
-########################################################
-        # this code uses the idea of using regions for calculationg fields
-        '''' this code is needed to isure porapugation speed in different media
-        note that this needs to be done as the simulation procedes through time
-        to insure that things porapugate poraporly as this will efect the
-        polarization field '''
-
-        ''' now simulate the boundary of every region this must be done
-        inside of the first time loop so that the polarization field is
-        poraporly updated '''
-        for (region, boundary) in zip(regions, boundaries):
-            grid.grid['E'], grid.grid['H'] = boundary_simulation(region,
-                                                                 boundary,
-                                                                 time,
-                                                                 grid.grid['E'],
-                                                                 grid.grid['H'],
-                                                                 grid)
-###############################################################################
+    charges_currents(regions,
+                     boundaries,
+                     timed_range(time_region[0], time_region[1], print_time),
+                     grid,
+                     update_diff)
 
     if grid.free_space is False:  # this calculates the effects of permittivity
         print('stage two permittivity')
@@ -173,7 +130,7 @@ def simulate(grid,
         ''' we now integrate over the hole thing again
             this time finding the polorization field '''
 
-        for time in timed_range(grid.time_size):
+        for time in timed_range(time_region[0], time_region[1], print_time):
 
             # first calculate the polarization vector
             grid.grid['P'][time] = polarization_field(grid.grid['E'][time],
@@ -221,8 +178,9 @@ def simulate(grid,
         grid.grid['E'] = grid.grid['E'] + grid.grid['P_E']
 
     end = Time.time()
-    print('grid simulated in ' + str(end - start) + ' seconds')
-    print()
+    if plasma_time is False:
+        print('grid simulated in ' + str(end - start) + ' seconds')
+        print()
 
 
 def induction_currents(grid,  # calculate induction
@@ -278,3 +236,72 @@ def induction_currents(grid,  # calculate induction
 
     print('induction_currents functinal')
     print('')
+
+
+def charges_currents(regions, boundaries, time_slot, grid, update_diff):
+    for time in time_slot:
+
+        # now calculate the polarization field and all genorated dipoles
+        # from it at time, time
+        # note that this should be the first thing that is done
+
+        # the polarization field is realy only kept for future analysis
+
+        # update_diff must be tested at the start of each time loop incase
+        # something is changed. this will be needed when moving charges
+        # are introduced
+        if update_diff is True:
+            currents_time_diff(grid)
+            update_diff = False
+
+        # this will have to be changed to a region by region calculation
+        # porabubly best to move it to a new modual
+
+        # for location in np.ndindex(tuple(grid.shape)):
+        '''' these next two for loops are used for mothed of regions
+        this is needed to insure porapugation speed'''
+
+        for (region, boundary) in zip(regions, boundaries):
+            for location in region:
+
+                # make sure that the location that is used
+                # is the acual location not just its index
+                location_dx = location * grid.delta
+
+                # calculate the fields strength at this location and time
+                (grid.grid['E'][:, location[0], location[1], location[2]],
+                 grid.grid['H'][:, location[0], location[1], location[2]],
+                 grid.grid['B'][:, location[0], location[1], location[2]],) = (
+                 field_calculator(grid.grid['E'][:, location[0],
+                                                 location[1], location[2]],
+                                  grid.grid['H'][:, location[0],
+                                                 location[1], location[2]],
+                                  grid.grid['B'][:, location[0],
+                                                 location[1], location[2]],
+                                  grid.charges[time],
+                                  grid.currents[time],
+                                  grid.dipoles[time],
+                                  grid,
+                                  location_dx,
+                                  time))
+
+########################################################
+        # this code uses the idea of using regions for calculationg fields
+        '''' this code is needed to isure porapugation speed in different media
+        note that this needs to be done as the simulation procedes through time
+        to insure that things porapugate poraporly as this will efect the
+        polarization field '''
+
+        ''' now simulate the boundary of every region this must be done
+        inside of the first time loop so that the polarization field is
+        poraporly updated '''
+        for (region, boundary) in zip(regions, boundaries):
+            grid.grid['E'], grid.grid['H'] = (
+                boundary_simulation(region,
+                                    boundary,
+                                    time,
+                                    grid.grid['E'],
+                                    grid.grid['H'],
+                                    grid))
+###############################################################################
+    return(grid.grid['E'], grid.grid['H'])

@@ -24,9 +24,10 @@ import numpy as np
 import sys
 
 
-def retardation(r, grid, c=C_0):
+def retardation(r, delta_t, c=C_0):
     # this function calculates the retardation used in all other functions
-    return(int(np.rint((r / c) / grid.delta_t)))
+    # return(int(np.rint((r / c) / grid.delta_t)))
+    return(int(np.rint((r / c) / delta_t)))
 
 
 def field_calculator(E_field, H_field, B_field,
@@ -48,23 +49,25 @@ def field_calculator(E_field, H_field, B_field,
 
         if r != 0:
             # calculate the time at which to add the new field quantity
-            time = time_0 + retardation(r, grid)
+            time = time_0 + retardation(r, grid.delta_t)
 
             # if time is less then the length of the simulaiton
             # calculate the added field
+            Permittivity = grid.get_Permittivity
             if time < grid.time_size:
                 field_E[time] = (field_E[time] +
                                  Electric_field_currents(current,
                                                          location,
                                                          r,
                                                          R,
-                                                         grid))
+                                                         Permittivity))
+
                 field_H[time], field_B[time] = (field_H[time] +
-                                 Magnetic_field_currents(current,
-                                                         r,
-                                                         R,
-                                                         grid))
-                
+                                                Magnetic_field_currents(
+                                                    current,
+                                                    r,
+                                                    R,
+                                                    grid))
 
     time = time_0
     # now repet the above for charges
@@ -75,7 +78,7 @@ def field_calculator(E_field, H_field, B_field,
 
         # find the field resulating from the charge at time "time"
         if r != 0:
-            time = time_0 + retardation(r, grid)
+            time = time_0 + retardation(r, grid.delta_t)
 
             # if time is less then the length of the
             # simulaiton calculate the added field
@@ -86,30 +89,13 @@ def field_calculator(E_field, H_field, B_field,
                                                         r,
                                                         R,
                                                         grid))
-                field_H[time], field_B[time] = (field_H[time] +
-                                 Magnetic_field_charges(charge,
-                                                        location,
-                                                        r,
-                                                        R,
-                                                        grid))
-
-    # now repete the above for dipoles
-#    for dipole in dipoles:
-#        # calcualte the distance to the dipole
-#        R = location - dipole.location
-#        r = np.linalg.norm(R)
-#        # find the field resulating from the dipole at time "time"
-#        if r != 0:
-#            time = time_0 + retardation(r, grid)
-#
-#            # if time is less then the length of the
-#            # simulaiton calculate the added field
-#            if time < grid.time_size:
-#                field_E[time] = (field_E[time] +
-#                                 Electric_field_dipole(dipole, r, R, grid))
-
-    # E_field_Permittivity(grid)
-    # H_field_Permeability(grid)
+                field_H[time], field_B[time] = (
+                    field_H[time] +
+                    Magnetic_field_charges(charge,
+                                           location,
+                                           r,
+                                           R,
+                                           grid))
 
     # add everything up
     E_field = E_field + field_E
@@ -119,14 +105,13 @@ def field_calculator(E_field, H_field, B_field,
     return(E_field, H_field, B_field)
 
 
-def Electric_field_currents(current, location, r, R, grid):
+def Electric_field_currents(current, location, r, R, get_Permittivity):
     # find the E field do to currents on the grid
     # see equation 2-2.12 of
     # electromagnetic retardation and theory of relativity
 
-    scale = 1 / (4 * np.pi * E_0 *
-                 # C_0 * grid.get_Permittivity(location))
-                 C_0 * grid.get_Permittivity(current.location))
+    scale = 1 / (4 * pi * E_0 *
+                 C_0 * get_Permittivity(current.location))
     # first find the terms dependent on current.amp
     # this is the electrostatic field
 
@@ -156,20 +141,22 @@ def Electric_field_currents(current, location, r, R, grid):
 
 
 def Magnetic_field_currents(current, r, R, grid):
-    # this function finds the H field do to currents on the field
+    # this function finds the H field do to currents
     # see equation 2-2.5 of
     # electromagnetic retardation and theory of relativity
 
     # calculate the H field resulting from the currents
-    scale = 1 / (4 * np.pi)
+    # scale is a factor resulting from geometry
+    # and a good place to concider for permibility
+    scale = 1 / (4 * pi)
 
     # first find the terms do to steady currents
     H_field_amps = (scale * current.amps *
-                    np.cross(current.direction, R) * 2 / (r**2))
+                    cross(current.direction, R) * 2 / (r**2))
 
     # now find the term dependent on current.diff_t
     # this is the electrokinetic field
-    H_field_diff_t = (scale * np.cross(current.diff_t, R) / (r**2 * C_0))
+    H_field_diff_t = (scale * cross(current.diff_t, R) / (r**2 * C_0))
 
     # find the total H field
     H_field = H_field_amps + H_field_diff_t
@@ -184,36 +171,32 @@ def Electric_field_charges(charge, location, r, R, grid):
     # electromagnetic retardation and theory of relativity
 
     # scale = 1 / (4 * np.pi * E_0 * grid.get_Permittivity(location))
-    scale = 1 / (4 * np.pi * E_0 * grid.get_Permittivity(charge.location))
 
-    velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
-                      'constant', constant_values=0)
+    # scale = 1 / (4 * np.pi * E_0 * grid.get_Permittivity(charge.location))
+    ''' chang this to a sum of equations 4-1.11 and 4-4.32
+    this will only requier 2 dot products'''
 
-    acceleration = (np.pad(charge.acceleration,
-                           (0, 3 - len(charge.acceleration)),
-                           'constant', constant_values=0))
+    scale = 1 / (4 * pi * E_0 * grid.get_Permittivity(charge.location))
 
-    common_factor = charge.Q / (r**3 *
-                                (1 - np.dot(R, (velocity /
-                                            (r * C_0))))**3)
+    velocity = charge.velocity
+    acceleration = charge.acceleration
 
-    # find the common terms of the remaining parts
-    radius_factor = (R - r * velocity / C_0)
+    dot_velocity_term = dot(R, (velocity / (r * C_0)))
 
-    # next find the factor resalting from velocity only
-    velocity_term = (scale * common_factor * radius_factor *
-                     (1 - velocity ** 2 / C_0 ** 2))
+    common_factor = 1 / (1 - dot_velocity_term)
 
-    # now find the factor that is dependent on acceleration
-    acceleration_factor = np.cross(radius_factor,
-                                   acceleration / C_0**2)
+    dot_acceleration_term = dot(R, acceleration)
 
-    # now find the full term that is dependent on acceleration
-    acceleration_term = (scale * common_factor
-                         * np.cross(R, acceleration_factor))
+    E_A = (charge.Q * scale *
+           common_factor * common_factor
+           * (common_factor * dot_acceleration_term * (1/(r*r))
+              * (R / r + velocity / (C_0))) + acceleration / r)
 
-    # find the total E field
-    E_field = (velocity_term + acceleration_term)
+    E_B = (charge.Q * scale * common_factor * common_factor * common_factor
+           * (1 - dot(velocity, velocity) / (C_0 * C_0)) / (r*r*r)
+           * (R - r * velocity / C_0))
+
+    E_field = E_A + E_B
     return(E_field)
 
 
@@ -222,48 +205,41 @@ def Magnetic_field_charges(charge, location, r, R, grid):
     # see equation 4-5.10 of
     # electromagnetic retardation and theory of relativity
 
-    scale = 1 / (4 * np.pi)
+    # scale is a factor resulting from geometry
+    # and a good place to conscider for permibility
+    scale = 1 / (4 * pi)
 
-    velocity = np.pad(charge.velocity, (0, 3 - len(charge.velocity)),
-                      'constant', constant_values=0)
-
-    acceleration = np.pad(charge.acceleration, (0, 3 -
-                                                len(charge.acceleration)),
-                          'constant', constant_values=0)
+    velocity = charge.velocity
+    acceleration = charge.acceleration
 
     # first find the most used term in the remaning equations
-    most_used_factor = 1/(r * (1 - np.dot(R, (velocity / (r * C_0)))))
+    most_used_factor = 1/(r * (1 - dot(R, (velocity / (r * C_0)))))
 
     # find the common term
     common_factor = charge.Q * scale * most_used_factor**2
 
     # next find the velocity factor
-    velocity_factor = (1 - np.linalg.norm(velocity)**2 / C_0**2
-                       + np.dot(R, acceleration) / C_0**2)
+    velocity_factor = (1 - np.dot(velocity, velocity) / C_0**2
+                       + dot(R, acceleration) / C_0**2)
 
-    # now find the full velocity term
-    velocity_term = (common_factor * most_used_factor
-                     * velocity_factor * np.cross(velocity, R))
-
-    # now find the term that is dependent on acceleration
-    # this is the electrokinetic field
-    acceleration_term = common_factor * np.cross(acceleration, R) / C_0
+    field = (cross(acceleration / C_0
+                   + most_used_factor * velocity_factor * velocity, R))
 
     # find the total H field
-    H_field = (velocity_term + acceleration_term)
+    H_field = common_factor * (field)
 
     B_field = U_0 * H_field
     return(H_field, B_field)
 
 
 def Electric_field_dipole(dipole, location, r, R, grid):
-    # this is the equation for a electric dipole from page 449
+    # this is the equation for an electric dipole from page 449
     # of handbook of phisics
     # also see equation 5-4.13 from electricity and magnetism by jefimenko
-    scale = 1 / (4 * np.pi * E_0)
+    scale = 1 / (4 * pi * E_0)
 
     # first find the term requiering a dot product
-    first_term = (3 * np.dot(dipole.dipole_moment, R) * R) / r**5
+    first_term = (3 * dot(dipole.dipole_moment, R) * R) / r**5
 
     # now find the remaining term
     last_term = dipole.dipole_moment / r**3
@@ -272,3 +248,13 @@ def Electric_field_dipole(dipole, location, r, R, grid):
     print('E_field test ' + str(E_field))
     print(dipole.dipole_moment)
     return(E_field)
+
+
+def cross(A, B):
+    return(np.array([A[1] * B[2] - A[2] * B[1],
+                     A[2] * B[0] - A[0] * B[2],
+                     A[0] * B[1] - A[1] * B[0]]))
+
+
+def dot(A, B):
+    return(np.array(A[0] * B[0] + A[1] * B[1] + A[2] * B[2]))

@@ -19,6 +19,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 # this file contains the classes need to define the grid being simulated
 import numpy as np
 import sys
+import types
 from .constants import *
 
 import math
@@ -33,11 +34,17 @@ class Grid():
             size=False,  # this is the size of the grid in meters
             time=.1,  # this is the length of a simulation in secounds
             delta_t=.1,  # this is the size of a full time step
-            free_space=True):
+            free_space=True,
+            constant_E=[0, 0, 0],
+            constant_H=[0, 0, 0]):
+
+        self.max_charge_distance = 0
+
+        self.constant_E = constant_E   # this defines a constant E field
+
+        self.constant_H = constant_H   # this defines a constant H field
 
         self.free_space = free_space
-        # self.dimension = dimension
-        # this is outdated and should be removed
         self.dimension = 3
 
         # define a delta value for the grid in each direction
@@ -47,7 +54,6 @@ class Grid():
             delta = np.pad(delta, (0, 3 - len(delta)),
                            'constant',
                            constant_values=1)
-            print('delta paded')
             self.delta = delta
 
         self.delta = np.array(self.delta).astype(float)
@@ -134,6 +140,25 @@ class Grid():
         self.grid['B'] = np.zeros(
             tuple(np.append(self.shape_t, [3])), dtype='complex')
 
+        if constant_E is not False:
+            for i in np.ndindex(self.grid['E'].shape):
+                if type(self.constant_E) == types.FunctionType:
+                    self.grid['E'][i[-3:]] = (constant_E(i[-3:] *
+                                                         self.delta,
+                                                         i[-4] *
+                                                         self.delta_t))
+                else:
+                    self.grid['E'][i] = constant_E[i[-1]]
+
+        if constant_H is not False:
+            for i in np.ndindex(self.grid['H'].shape):
+                if type(self.constant_H) == types.FunctionType:
+                    self.grid['H'][i[-3:]] = (constant_H(i[-3:] *
+                                                         self.delta, i[-4] *
+                                                         self.delta_t))
+                else:
+                    self.grid['H'][i] = constant_H[i[-1]]
+
         if self.free_space is False:
             # polarization vector grid
             self.grid['P'] = np.zeros(
@@ -144,7 +169,7 @@ class Grid():
                 tuple(np.append(self.shape_t, [3])), dtype='complex')
 
             # permitivity gradient grid
-            #self.grid_P_grad = np.zeros(
+            # self.grid_P_grad = np.zeros(
             #    tuple(np.append(self.shape, [3])), dtype='complex')
 
             # magnetization vector grid
@@ -187,10 +212,11 @@ class Grid():
 
     def Add_Charge(self,
                    location,   # the locaiton to place the new charge
-                   Q=0,        # the colembs of the charge
+                   Q=(-1.6021766208) * 10**(-19),  # charge defalt electron
                    velocity=False,  # the velocity of the charge
                    acceleration=False,  # the acceleration of the charge
                    time=0,     # the time at which to place the charge
+                   mass=9.10938356 * 10**(-31),  # kg defalt electron
                    print_all=False,  # print the specs of the charge
                    count=False):  # return the index of the new charge
         # this will add a charge to the grid notice that a charge is a class
@@ -224,7 +250,13 @@ class Grid():
             self.charges[i].append(new_charge)
 
         for i in range(time_N, self.time_size):
-            new_charge = Charge(self, location, Q, velocity, acceleration)
+            new_charge = Charge(self,
+                                location,
+                                Q,
+                                velocity,
+                                acceleration,
+                                mass)
+
             self.charges[i].append(new_charge)
 
         if print_all is not False:
@@ -516,11 +548,12 @@ class Grid():
         if acceleration is not False:  # acceleration of the dipole
             self.dipoles[time][N].acceleration = np.array(accelaration)
 
-        self.dipoles[time][N].dipole_moment = (self.dipoles[time][N].vector *
-                                               self.dipoles[time][N].Q *
-                                               self.dipoles[time][N].separation)
+        dipole = self.dipoles[time][N]
+        self.dipoles[time][N].dipole_moment = (dipole.vector *
+                                               dipole.Q *
+                                               dipole.separation)
 
-        self.modify_charge(self.dipoles[time][N].charges[0],  # charge to modify
+        self.modify_charge(self.dipoles[time][N].charges[0],  # modify charge
                            time*self.delta_t,  # when to modify the charge
                            velocity=False,  # the new velocity
                            acceleration=False,  # the new acceleration
@@ -533,7 +566,7 @@ class Grid():
         if print_all is True:
             print()
 
-        self.modify_charge(self.dipoles[time][N].charges[1],  # charge to modify
+        self.modify_charge(self.dipoles[time][N].charges[1],  # modify charge
                            time*self.delta_t,  # when to modify the charge
                            velocity=False,  # the new velocity
                            acceleration=False,  # the new acceleration
@@ -574,7 +607,7 @@ class Grid():
                                               location,
                                               material,
                                               permittivity))
-        
+
     ''' get_Permittivity is only for calculationg the polarization vector
     # this code should be made inoto a genorator '''
 
@@ -592,12 +625,13 @@ class Grid():
 
 
 class Charge():  # this is used to define a charge on the grid
-    def __init__(self, grid, location, Q, velocity, acceleration):
+    def __init__(self, grid, location, Q, velocity, acceleration, mass):
 
         self.location = np.array(location).astype(float)
         self.Q = Q
         self.velocity = np.array(velocity)
         self.acceleration = np.array(acceleration)
+        self.mass = mass
 
 
 class Current():  # this is used to define a current on the grid
