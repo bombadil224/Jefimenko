@@ -27,14 +27,20 @@ def currents_time_diff(grid):
         current_time_list = []
         # notice that amps is included in this so it will not be needed later
         for time in range(grid.time_size):
-            current_time_list.append(grid.currents[time][n].direction
-                                     * grid.currents[time][n].amps)
+
+            amps = grid.currents[time][n].amps
+            A = []
+            for i in range(3):
+                A.append(grid.currents[time][n].amps
+                         * grid.currents[time][n].direction[i])
+            current_time_list.append(A)
+
         # now calculate the gradient with numpy
         gradient = np.gradient(current_time_list, grid.delta_t, axis=0)
 
         # now put all of the values into grid.currents for storage
         for time in range(grid.time_size):
-            grid.currents[time][n].diff_t = gradient[time]
+            grid.currents[time][n].diff_t = list(gradient[time])
 
 
 # this finds the gradient of a field
@@ -76,16 +82,16 @@ def divergence(field, delta):
     # pdb.set_trace()
     return (div)
 
-    
+
 # call delta as grid.delta
 def curl_3d(field, delta):
     curl = []
 
-    grad = np.gradient(field,delta[0],delta[1],delta[2],axis = (0,1,2))
+    grad = np.gradient(field, delta[0], delta[1], delta[2], axis=(0, 1, 2))
     for i in range(len(grad)):
         for j in range(len(grad[0])):
             for k in range(len(grad[0][0])):
-                curl.append([grad[1][i ,j ,k ,2] - grad[2][i ,j ,k ,1],
-                            grad[2][i ,j ,k ,0] - grad[0][i ,j ,k ,2] ,
-                            grad[0][i ,j ,k ,1] - grad[1][i ,j ,k ,0]])
+                curl.append([grad[1][i, j, k, 2] - grad[2][i, j, k, 1],
+                            grad[2][i, j, k, 0] - grad[0][i, j, k, 2],
+                            grad[0][i, j, k, 1] - grad[1][i, j, k, 0]])
     return(np.array(curl))

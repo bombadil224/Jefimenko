@@ -16,17 +16,20 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-# this fie initializes the program
+# this file initializes the program
 
-__version__ = '0.0.1'
+__version__ = '0.0.5'
 __author__ = 'Nehemiah Null'
 __contact__ = '<Bombadil224@gmail.com>'
 __license__ = "GPLv3"
 __date__ = '2018/12/02'
 
 
+# from .extras import load_work, save_work
 from .simulation import *
+# from .plasma import *
 from .classes import *
 from .graphing import *
+from .plasma import *
 
-print('Jefimenko version 0.0.1')
+print('Jefimenko version 0.0.5')

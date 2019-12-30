@@ -2,11 +2,13 @@ Jefimenko
 =========
 
 This is intended to become an EM simulator based on the Jefimenko equations.
+This is also an experimental plasma simulator.
 
 Requirements
 -------
 numpy
 matplotlib
+scipy
 
 Licence
 -------

@@ -207,8 +207,8 @@ def plot_grid(Grid, time=0):
                 z,
                 u,
                 v,
-                w,
-                pivot='middle')
+                w)  # ,
+                # pivot='middle')
 
         ax.set_xlabel('X axis')
         ax.set_ylabel('Y axis')
@@ -343,9 +343,9 @@ def plot_EM_grid(mode, grid, time=0):
             y = j * grid.delta[1]
             z = k * grid.delta[2]
 
-            u = grid.grid[mode][time][int(i)][int(j)][int(k)][0].real
-            v = grid.grid[mode][time][int(i)][int(j)][int(k)][1].real
-            w = grid.grid[mode][time][int(i)][int(j)][int(k)][2].real
+            u = grid.grid[mode][time][int(i)][int(j)][int(k)][0]
+            v = grid.grid[mode][time][int(i)][int(j)][int(k)][1]
+            w = grid.grid[mode][time][int(i)][int(j)][int(k)][2]
 
             norm = np.linalg.norm([u, v, w])
 

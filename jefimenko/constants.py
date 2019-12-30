@@ -16,14 +16,15 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from numpy import pi as pi
 from numpy import array as array
 
 # this file holds the constants that are needed
 
+pi = 3.141592653589793
 C_0 = 299792458  # this is the speed of light in meters per secound
 K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
 E_0 = (4 * pi * K_e) ** -1  # free space permittivity
 U_0 = (C_0 ** 2 * E_0) ** -1   # free space permeability
 
-e = array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])  # these are the unit vector in R3
+# these are the unit vectors in R3
+e = array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
