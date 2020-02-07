@@ -18,7 +18,7 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 # this file initializes the program
 
-__version__ = '0.0.5'
+__version__ = '0.0.6'
 __author__ = 'Nehemiah Null'
 __contact__ = '<Bombadil224@gmail.com>'
 __license__ = "GPLv3"
@@ -32,4 +32,6 @@ from .classes import *
 from .graphing import *
 from .plasma import *
 
-print('Jefimenko version 0.0.5')
+print('Jefimenko version ' + __version__)
+print('Julia')
+

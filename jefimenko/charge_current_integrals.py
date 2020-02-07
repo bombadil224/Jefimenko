@@ -18,23 +18,29 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 
 # this file holds the moduals for calculationg the jefimenko equations
 
-
 from .constants import *
+import julia
+from julia.api import Julia
+import os
 
-# cdef double pi = 3.141592653589793
-# cdef double C_0 = 299792458  # this is the speed of light in meters
-# cdef double K_e = 8.9875517873681764 * 10 ** 9  # this is Coulomb's constant
-# cdef double E_0 = (4 * pi * K_e) ** -1  # free space permittivity
-# cdef double U_0 = (C_0 ** 2 * E_0) ** -1   # free space permeability
+import pdb
 
+script_path = os.path.abspath(__file__)
+# fileDir = os.path.dirname(os.path.realpath('__file__'))
+script_dir = os.path.split(script_path)[0]
 
-def retardation(r, delta_t, c=C_0):
+jl = Julia(compiled_modules=False)
+j = julia.Julia()
+j.include(script_dir + "/charge_current_integrals.jl")
 
-    # cdef int ret_val = 0
-    # ret_val = int(np.rint(((r / c) / delta_t)))
-    ret_val = int(round(((r / c) / delta_t)))
-
-    return(ret_val)
+# def retardation(r, delta_t, c=C_0):
+#
+#     #cdef double ret_val = 0
+#     # ret_val = int(np.rint(((r / c) / delta_t)))
+#     ret_val = int(round(((r / c) / delta_t)))
+#     #ret_val = ((r / c) / delta_t)
+#
+#     return(ret_val)
 
 
 def field_calculator(charges,
@@ -46,10 +52,11 @@ def field_calculator(charges,
                      time_size):
     '''# add time_size to call'''
 
+    location = [float(location[0]),
+                float(location[1]),
+                float(location[2])]
+
     # this function maneges the calculaiton of the E and H fields
-    # cdef double r
-    # cdef double delta_t = grid.delta_t
-    # cdef int time = time_0
 
     # first we need some grids to hold the added field strenth
     field_E = [[0, 0, 0] for i in range(time_size)]
@@ -66,25 +73,40 @@ def field_calculator(charges,
 
         if r != 0:
             # calculate the time at which to add the new field quantity
-            time = time_0 + retardation(r, grid.delta_t)
+            # time = time_0 + retardation(r, grid.delta_t)
+            time = time_0 + j.retardation(r, grid.delta_t)
 
             # if time is less then the length of the simulaiton
             # calculate the added field
             Permittivity = grid.get_Permittivity
             if time < time_size:
+                pass
                 field_E[time] = ([F + E for (F, E) in zip(field_E[time],
-                                 E_field_currents(current.diff_t,
+                                 #E_field_currents(current.diff_t,
+                                 j.E_field_currents(current.diff_t,
                                                   current.location,
                                                   current.amps,
                                                   current.direction,
                                                   r,
                                                   R,
-                                                  Permittivity(location)))])
+                                                  #Permittivity(location)) )])
+                                                  Permittivity(location)) )])
+                #pdb.set_trace()
 
                 H_F, B_F = Magnetic_field_currents(current,
                                                    r,
                                                    R,
                                                    grid)
+
+                #pdb.set_trace()
+
+
+                #print(j.Magnetic_field_currents(current,
+                #                                   r,
+                #                                   R,
+                #                                   grid))
+                #print(R)
+                #print()
 
                 field_H[time] = [F_H + H for (F_H, H)
                                  in zip(field_H[time], H_F)]
@@ -96,19 +118,21 @@ def field_calculator(charges,
     for charge in charges:
         # calcualte the distance to the charge
         R = [loc - C_loc for (loc, C_loc) in zip(location, charge.location)]
-        r = dot(R, R)**.5
+        r = float(dot(R, R)**.5)
 
         # find the field resulating from the charge at time "time"
         if r != 0:
-            time = time_0 + retardation(r, grid.delta_t)
+            time = time_0 + j.retardation(r, grid.delta_t)
 
             # if time is less then the length of the
             # simulaiton calculate the added field
             if time < time_size:
+                pass
                 field_E[time] = [F + E for
                                  (F, E) in
                                  zip(field_E[time],
-                                     E_field_charges(charge,
+                                     j.E_field_charges(charge,
+                                     # E_field_charges(charge,
                                                      charge.velocity,
                                                      charge.acceleration,
                                                      charge.Q,
@@ -118,8 +142,8 @@ def field_calculator(charges,
                                                      grid,
                                                      grid.get_Permittivity(
                                                      charge.location)))]
-
-                H_F, B_F = Magnetic_field_charges(charge,
+##
+                H_F, B_F = j.Magnetic_field_charges(charge,
                                                   location,
                                                   r,
                                                   R,

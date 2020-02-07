@@ -139,6 +139,7 @@ class Grid():
         self.grid['E'] = []
         self.grid['H'] = []
         self.grid['B'] = []
+        self.grid['K'] = []
 
     def Add_Charge(self,
                    location,   # the locaiton to place the new charge
@@ -529,12 +530,21 @@ class Charge():  # this is used to define a charge on the grid
                  mass,
                  dipole=False):
 
-        self.location = location
-        self.Q = Q
-        self.velocity = velocity
-        self.acceleration = acceleration
-        self.mass = mass
-        self.dipole = dipole
+        self.location = [float(location[0]),
+                         float(location[1]),
+                         float(location[2])]
+
+        self.Q = float(Q)
+        self.velocity = [float(velocity[0]),
+                         float(velocity[1]),
+                         float(velocity[2])]
+
+        self.acceleration = [float(acceleration[0]),
+                             float(acceleration[1]),
+                             float(acceleration[2])]
+
+        self.mass = float(mass)
+        self.dipole = float(dipole)
 
 
 class Current():  # this is used to define a current on the grid

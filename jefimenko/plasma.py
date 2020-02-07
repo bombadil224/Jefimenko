@@ -26,6 +26,9 @@ import types
 
 from .simulation import simulate_location_list
 
+#jl = Julia(compiled_modules=False)
+#j = julia.Julia()
+#j.include(script_dir + "/plasma.jl")
 
 def plasma_simulation(grid, test=False):
 
@@ -71,7 +74,7 @@ def plasma_simulation(grid, test=False):
             B_field.append(list(grid.constant_H(location,
                                                 time * grid.delta_t)))
 
-        E, H, B = simulate_location_list(location_list,
+        E, H, B, K = simulate_location_list(location_list,
                                          time,
                                          grid,
                                          time_end=time+1)
@@ -184,3 +187,11 @@ def boris_method(location_list,
                                               for (V, L) in
                                               zip(charges[time + 1][n].velocity,
                                                   charges[time][n].location)]
+
+def dot(A, B):
+    return((A[0] * B[0] + A[1] * B[1] + A[2] * B[2]))
+
+def cross(A, B):
+    return(([A[1] * B[2] - A[2] * B[1],
+             A[2] * B[0] - A[0] * B[2],
+             A[0] * B[1] - A[1] * B[0]]))
